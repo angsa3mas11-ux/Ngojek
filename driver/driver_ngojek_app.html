@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Ngojek - Portal Mitra & Dashboard Realtime</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#0066FF', // Main brand color requested
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Leaflet.js CSS & JS for Interactive Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Chart.js for Financial & Order Reports -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        
+        /* Glassmorphism Styles */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .glass-header {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        /* Pulse animation for map marker & online badge */
+        @keyframes radar-pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 0.2; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .pulse-ring {
+            animation: radar-pulse 2s infinite ease-in-out;
+        }
+
+        /* Hide scrollbars for crisp UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Custom pulsing map marker */
+        .driver-marker-icon {
+            background-color: #0066FF;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0, 102, 255, 0.4);
+        }
+    </style>
+</head>
+<body class="text-slate-800 bg-slate-50 min-h-screen flex flex-col md:flex-row antialiased overflow-x-hidden">
+
+    <!-- SIDEBAR NAV -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-brand-600 text-white transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col justify-between shadow-2xl">
+        <div>
+            <!-- Logo Header -->
+            <div class="px-6 py-6 border-b border-white/10 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-white text-brand-600 flex items-center justify-center font-black text-xl shadow-md">
+                        <i class="fa-solid fa-motorcycle"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-extrabold text-xl tracking-wider text-white">NGOJEK</h1>
+                        <span class="text-xs font-medium text-brand-100 bg-white/10 px-2 py-0.5 rounded-full">Driver App</span>
+                    </div>
+                </div>
+                <button onclick="toggleSidebar()" class="md:hidden text-white/80 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Driver Quick Profile Info -->
+            <div class="p-4 mx-4 my-4 bg-white/10 rounded-2xl flex items-center space-x-3 backdrop-blur-sm">
+                <img id="sidebar-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" class="w-12 h-12 rounded-full object-cover border-2 border-white/40 shadow-sm" alt="Driver Avatar">
+                <div class="overflow-hidden">
+                    <h2 id="sidebar-driver-name" class="font-semibold text-sm truncate text-white">Budi Santoso</h2>
+                    <p id="sidebar-vehicle-plate" class="text-xs text-brand-100 font-mono">B 3829 SGK • Motor</p>
+                    <div class="flex items-center space-x-1 text-amber-300 text-xs mt-0.5">
+                        <i class="fa-solid fa-star"></i>
+                        <span class="font-bold text-white">4.92</span>
+                        <span class="text-white/60 text-[10px]">(182 Ulasan)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="px-4 space-y-1.5 mt-2">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 bg-white text-brand-600 shadow-md">
+                    <i class="fa-solid fa-gauge-high w-5 text-center text-lg"></i>
+                    <span>DASHBOARD</span>
+                </button>
+
+                <button onclick="switchTab('pesanan')" id="nav-pesanan" class="nav-item w-full flex items-center justify-between px-4 py-3 rounded-xl font-medium text-sm text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200">
+                    <div class="flex items-center space-x-3.5">
+                        <i class="fa-solid fa-bell w-5 text-center text-lg"></i>
+                        <span>PESANAN</span>
+                    </div>
+                    <span id="pesanan-badge" class="bg-amber-400 text-slate-900 font-bold text-xs px-2 py-0.5 rounded-full hidden">1 BARU</span>
+                </button>
+
+                <button onclick="switchTab('riwayat')" id="nav-riwayat" class="nav-item w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl font-medium text-sm text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200">
+                    <i class="fa-solid fa-clock-rotate-left w-5 text-center text-lg"></i>
+                    <span>RIWAYAT PESANAN</span>
+                </button>
+
+                <button onclick="switchTab('laporan')" id="nav-laporan" class="nav-item w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl font-medium text-sm text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200">
+                    <i class="fa-solid fa-chart-line w-5 text-center text-lg"></i>
+                    <span>LAPORAN</span>
+                </button>
+
+                <button onclick="switchTab('pengaturan')" id="nav-pengaturan" class="nav-item w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl font-medium text-sm text-white/80 hover:bg-white/10 hover:text-white transition-all duration-200">
+                    <i class="fa-solid fa-user-gear w-5 text-center text-lg"></i>
+                    <span>PENGATURAN AKUN</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Footer / Registration Link -->
+        <div class="p-4 border-t border-white/10 space-y-2">
+            <button onclick="openRegistrationModal()" class="w-full flex items-center justify-center space-x-2 bg-white/10 hover:bg-white/20 border border-white/20 py-2.5 rounded-xl text-xs font-semibold text-white transition">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Daftar Mitra Baru</span>
+            </button>
+            <div class="text-[11px] text-center text-white/50 pt-1">
+                Version 2.4.0 • Mitra Ngojek
+            </div>
+        </div>
+    </aside>
+
+    <!-- Overlay for mobile sidebar -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 hidden md:hidden"></div>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-1 flex flex-col min-w-0 md:ml-64 transition-all">
+
+        <!-- TOP HEADER BAR -->
+        <header class="glass-header sticky top-0 z-20 px-4 md:px-8 py-3.5 border-b border-slate-200 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <button onclick="toggleSidebar()" class="md:hidden text-slate-600 hover:text-slate-900 p-2 rounded-lg hover:bg-slate-100">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                <h2 id="page-title" class="text-xl font-extrabold text-slate-800 tracking-tight">DASHBOARD DRIVER</h2>
+            </div>
+
+            <!-- Driver Status Toggle & Notifications -->
+            <div class="flex items-center space-x-3 md:space-x-4">
+                <!-- Driver Status Toggle Button -->
+                <div class="flex items-center bg-slate-100 p-1 rounded-full border border-slate-200 shadow-inner">
+                    <span id="status-label-text" class="text-xs font-bold px-3 text-emerald-600 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>ONLINE</span>
+                    </span>
+                    <button id="toggle-status-btn" onclick="toggleDriverOnlineStatus()" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-emerald-500" role="switch" aria-checked="true">
+                        <span id="toggle-status-circle" class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"></span>
+                    </button>
+                </div>
+
+                <!-- Simulation Trigger Demo Button -->
+                <button onclick="triggerSimulatedOrder()" class="bg-brand-50 hover:bg-brand-100 text-brand-600 font-semibold px-3 py-1.5 rounded-lg text-xs border border-brand-200 transition flex items-center gap-1.5 shadow-sm" title="Simulasikan Orderan Masuk">
+                    <i class="fa-solid fa-wand-magic-sparkles text-brand-600"></i>
+                    <span class="hidden sm:inline">Simulasi Order</span>
+                </button>
+
+                <!-- Profile Badge Quick Link -->
+                <div onclick="switchTab('pengaturan')" class="cursor-pointer w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center border border-brand-200 text-brand-600 font-bold text-sm shadow-sm hover:ring-2 hover:ring-brand-500 transition">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN TAB CONTAINER -->
+        <main class="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6">
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content space-y-6">
+                
+                <!-- Quick Stats Grid -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Stat Card 1 -->
+                    <div class="bg-white rounded-2xl p-4 md:p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
+                        <div class="flex items-center justify-between text-slate-500 mb-2">
+                            <span class="text-xs md:text-sm font-semibold">Pendapatan Bersih</span>
+                            <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                <i class="fa-solid fa-wallet text-sm"></i>
+                            </div>
+                        </div>
+                        <div id="stat-revenue" class="text-lg md:text-2xl font-black text-slate-900">Rp 184.000</div>
+                        <div class="text-[11px] text-emerald-600 mt-1 font-medium">
+                            <i class="fa-solid fa-arrow-trend-up mr-1"></i>+12% vs kemarin
+                        </div>
+                    </div>
+
+                    <!-- Stat Card 2 -->
+                    <div class="bg-white rounded-2xl p-4 md:p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
+                        <div class="flex items-center justify-between text-slate-500 mb-2">
+                            <span class="text-xs md:text-sm font-semibold">Pesanan Selesai</span>
+                            <div class="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                                <i class="fa-solid fa-circle-check text-sm"></i>
+                            </div>
+                        </div>
+                        <div id="stat-completed" class="text-lg md:text-2xl font-black text-slate-900">8 Trip</div>
+                        <div class="text-[11px] text-brand-600 mt-1 font-medium">
+                            Target hari ini: 10 Trip
+                        </div>
+                    </div>
+
+                    <!-- Stat Card 3 -->
+                    <div class="bg-white rounded-2xl p-4 md:p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
+                        <div class="flex items-center justify-between text-slate-500 mb-2">
+                            <span class="text-xs md:text-sm font-semibold">Total Jarak Tempuh</span>
+                            <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                                <i class="fa-solid fa-route text-sm"></i>
+                            </div>
+                        </div>
+                        <div id="stat-distance" class="text-lg md:text-2xl font-black text-slate-900">42.5 Km</div>
+                        <div class="text-[11px] text-amber-600 mt-1 font-medium">
+                            Rata-rata 5.3 Km / trip
+                        </div>
+                    </div>
+
+                    <!-- Stat Card 4 -->
+                    <div class="bg-white rounded-2xl p-4 md:p-5 border border-slate-100 shadow-sm hover:shadow-md transition">
+                        <div class="flex items-center justify-between text-slate-500 mb-2">
+                            <span class="text-xs md:text-sm font-semibold">Rating Pelanggan</span>
+                            <div class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                                <i class="fa-solid fa-star text-sm"></i>
+                            </div>
+                        </div>
+                        <div class="text-lg md:text-2xl font-black text-slate-900 flex items-center gap-1">
+                            4.92
+                            <span class="text-xs text-slate-400 font-normal">/ 5.0</span>
+                        </div>
+                        <div class="text-[11px] text-purple-600 mt-1 font-medium">
+                            <i class="fa-solid fa-thumbs-up mr-1"></i>98% Sangat Puas
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Active Order Widget / Interactive Map Split -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left: Interactive Leaflet Map -->
+                    <div class="lg:col-span-2 bg-white rounded-3xl p-4 border border-slate-100 shadow-sm flex flex-col">
+                        <div class="flex items-center justify-between mb-3 px-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="flex h-3 w-3 relative">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-3 w-3 bg-brand-600"></span>
+                                </span>
+                                <h3 class="font-bold text-slate-800 text-sm md:text-base">Peta Interaktif & Radar Penjemputan</h3>
+                            </div>
+                            <span class="text-xs text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full font-medium" id="map-location-tag">Jakarta Selatan (GPS Aktif)</span>
+                        </div>
+                        <!-- Map Canvas -->
+                        <div id="driver-map" class="w-full h-80 md:h-[420px] rounded-2xl border border-slate-200 z-10 shadow-inner"></div>
+                    </div>
+
+                    <!-- Right: Realtime Order Status / Widget -->
+                    <div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                                    <i class="fa-solid fa-satellite-dish text-brand-600 animate-pulse"></i>
+                                    Status Pesanan Aktif
+                                </h3>
+                                <span id="active-order-badge" class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full">MENUNGGU</span>
+                            </div>
+
+                            <!-- Dynamic Active Trip Widget Container -->
+                            <div id="active-trip-widget" class="mt-4">
+                                <!-- Empty state when online and searching -->
+                                <div id="searching-order-state" class="text-center py-10 space-y-3">
+                                    <div class="w-16 h-16 mx-auto bg-brand-50 rounded-full flex items-center justify-center text-brand-600 text-2xl animate-bounce">
+                                        <i class="fa-solid fa-radar"></i>
+                                    </div>
+                                    <h4 class="font-bold text-slate-800 text-sm">Mencari Pesanan Terdekat...</h4>
+                                    <p class="text-xs text-slate-500 max-w-xs mx-auto">Tetap aktifkan status Driver ONLINE untuk menerima permintaan perjalanan dari pelanggan di sekitarmu.</p>
+                                    <button onclick="triggerSimulatedOrder()" class="mt-2 text-xs font-bold text-brand-600 hover:text-brand-800 underline">
+                                        + Simulasi Terima Order Masuk
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Notice Banner -->
+                        <div class="bg-brand-50 border border-brand-100 p-3.5 rounded-2xl flex items-start space-x-3 text-xs text-brand-900">
+                            <i class="fa-solid fa-circle-info text-brand-600 text-base mt-0.5"></i>
+                            <div>
+                                <span class="font-bold">Potongan Komisi Sistem:</span>
+                                <p class="text-brand-700 mt-0.5">Setiap pesanan dipotong komisi sebesar <strong>8%</strong> otomatis. Pendapatan bersih 92% langsung masuk ke saldo dompet driver Anda.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: PESANAN (Incoming / Active Trip Execution) -->
+            <section id="tab-pesanan" class="tab-content space-y-6 hidden">
+                <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Daftar Order Masuk & Eksekusi Perjalanan</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Kelola permintaan penjemputan aktif dan jalankan simulasi navigasi pelanggan secara realtime.</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="triggerSimulatedOrder()" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-md transition flex items-center space-x-2">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>Simulasi Order Baru</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Order Cards List Container -->
+                    <div id="orders-list-container" class="mt-6 space-y-4">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: RIWAYAT PESANAN -->
+            <section id="tab-riwayat" class="tab-content space-y-6 hidden">
+                <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900">Riwayat Pesanan Selesai</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Daftar riwayat transaksi perjalanan dan transparansi potongan komisi 8%.</p>
+                        </div>
+                        <!-- Filter Search -->
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="search-history" onkeyup="filterHistoryTable()" placeholder="Cari nama / rute..." class="px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none w-full md:w-60">
+                        </div>
+                    </div>
+
+                    <!-- History Table -->
+                    <div class="overflow-x-auto mt-4">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
+                                    <th class="p-3.5">ID & Waktu</th>
+                                    <th class="p-3.5">Pelanggan</th>
+                                    <th class="p-3.5">Layanan</th>
+                                    <th class="p-3.5">Rute (Pickup & Destination)</th>
+                                    <th class="p-3.5 text-right">Total Tarif</th>
+                                    <th class="p-3.5 text-right">Komisi (8%)</th>
+                                    <th class="p-3.5 text-right">Bersih Driver</th>
+                                    <th class="p-3.5 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body" class="divide-y divide-slate-100 font-medium">
+                                <!-- Dynamic history rows generated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: LAPORAN (FINANCIAL & STATS) -->
+            <section id="tab-laporan" class="tab-content space-y-6 hidden">
+                <!-- Top Balance Card -->
+                <div class="bg-gradient-to-r from-brand-600 to-brand-800 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div class="space-y-2">
+                        <span class="text-xs font-semibold text-brand-100 uppercase tracking-widest">Saldo Dompet Driver (Siap Tarik)</span>
+                        <div class="text-3xl md:text-4xl font-extrabold" id="report-wallet-balance">Rp 482.500</div>
+                        <p class="text-xs text-brand-200">Terakumulasi dari pendapatan bersih 92% trip Anda minggu ini.</p>
+                    </div>
+                    <button onclick="openWithdrawModal()" class="bg-white text-brand-700 hover:bg-brand-50 font-bold px-6 py-3 rounded-2xl text-xs shadow-lg transition flex items-center space-x-2">
+                        <i class="fa-solid fa-money-bill-transfer text-base"></i>
+                        <span>Tarik Saldo (Withdraw)</span>
+                    </button>
+                </div>
+
+                <!-- Financial Breakdown Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-2">
+                        <div class="text-xs text-slate-500 font-semibold">Total Gross Fare (Bruto)</div>
+                        <div class="text-2xl font-black text-slate-900" id="report-gross">Rp 524.400</div>
+                        <p class="text-[11px] text-slate-400">Total akumulasi tarif pesanan</p>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-2">
+                        <div class="text-xs text-slate-500 font-semibold">Potongan Komisi Aplikasi (8%)</div>
+                        <div class="text-2xl font-black text-rose-600" id="report-commission">- Rp 41.900</div>
+                        <p class="text-[11px] text-rose-500">Otomatis dipotong sistem</p>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-2">
+                        <div class="text-xs text-slate-500 font-semibold">Pendapatan Bersih (Net)</div>
+                        <div class="text-2xl font-black text-emerald-600" id="report-net">Rp 482.500</div>
+                        <p class="text-[11px] text-emerald-500">92% Hak Mitra Driver</p>
+                    </div>
+                </div>
+
+                <!-- Chart & Detailed Analytics Section -->
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                    <h3 class="font-bold text-slate-800 text-base">Grafik Pendapatan Mingguan (Rp)</h3>
+                    <div class="w-full h-72">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: PENGATURAN AKUN -->
+            <section id="tab-pengaturan" class="tab-content space-y-6 hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left Column: Profile Card -->
+                    <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center space-y-4">
+                        <div class="relative group">
+                            <img id="profile-card-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150" class="w-28 h-28 rounded-full object-cover border-4 border-brand-50 shadow-md" alt="Driver Profile">
+                            <button onclick="document.getElementById('avatar-file-input').click()" class="absolute bottom-0 right-0 bg-brand-600 text-white p-2.5 rounded-full shadow-lg hover:bg-brand-700 transition">
+                                <i class="fa-solid fa-camera text-xs"></i>
+                            </button>
+                            <input type="file" id="avatar-file-input" class="hidden" accept="image/*" onchange="previewAvatar(event)">
+                        </div>
+                        <div>
+                            <h3 id="profile-card-name" class="font-bold text-lg text-slate-900">Budi Santoso</h3>
+                            <p id="profile-card-phone" class="text-xs text-slate-500">+62 812-3456-7890</p>
+                        </div>
+                        <div class="w-full pt-4 border-t border-slate-100 space-y-2 text-left text-xs">
+                            <div class="flex justify-between py-1.5">
+                                <span class="text-slate-500">Status Akun:</span>
+                                <span class="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">TERVERIFIKASI</span>
+                            </div>
+                            <div class="flex justify-between py-1.5">
+                                <span class="text-slate-500">Tanggal Bergabung:</span>
+                                <span class="font-semibold text-slate-800">12 Januari 2024</span>
+                            </div>
+                            <div class="flex justify-between py-1.5">
+                                <span class="text-slate-500">Jenis Kendaraan:</span>
+                                <span id="profile-card-vehicle" class="font-semibold text-slate-800">Honda Vario 160 (Motor)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Settings Form -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Profile Edit Form -->
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                            <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">Informasi Data Diri & Kendaraan</h3>
+                            <form id="profile-edit-form" onsubmit="saveProfileSettings(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                <div>
+                                    <label class="block font-semibold text-slate-700 mb-1">Nama Lengkap</label>
+                                    <input type="text" id="edit-name" value="Budi Santoso" required class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-slate-700 mb-1">Nomor Handphone</label>
+                                    <input type="tel" id="edit-phone" value="081234567890" required class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-slate-700 mb-1">Email</label>
+                                    <input type="email" id="edit-email" value="budi.driver@ngojek.com" required class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-slate-700 mb-1">Jenis Kendaraan</label>
+                                    <select id="edit-vehicle-type" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                        <option value="Motor (YourRide)" selected>Motor (YourRide)</option>
+                                        <option value="Mobil (YourCar)">Mobil (YourCar)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-slate-700 mb-1">Nomor Plat Kendaraan</label>
+                                    <input type="text" id="edit-plate" value="B 3829 SGK" required class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none font-mono uppercase">
+                                </div>
+                                <div class="md:col-span-2 flex justify-end mt-2">
+                                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition shadow-md">
+                                        Simpan Perubahan
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Documents Management Form -->
+                        <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                            <h3 class="font-bold text-slate-900 text-base border-b border-slate-100 pb-3">Dokumen Legalitas Mitra</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                                <!-- SIM Card -->
+                                <div class="border border-slate-200 rounded-2xl p-3 text-center space-y-2 bg-slate-50">
+                                    <i class="fa-solid fa-id-card text-2xl text-brand-600"></i>
+                                    <div class="font-bold text-slate-800">SIM C / A</div>
+                                    <span class="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Aktif s/d 2028</span>
+                                    <button onclick="triggerNotification('Dokumen SIM terverifikasi valid!')" class="block w-full py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100">Lihat SIM</button>
+                                </div>
+                                <!-- STNK Card -->
+                                <div class="border border-slate-200 rounded-2xl p-3 text-center space-y-2 bg-slate-50">
+                                    <i class="fa-solid fa-file-contract text-2xl text-brand-600"></i>
+                                    <div class="font-bold text-slate-800">STNK Kendaraan</div>
+                                    <span class="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Aktif s/d 2026</span>
+                                    <button onclick="triggerNotification('Dokumen STNK terverifikasi valid!')" class="block w-full py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100">Lihat STNK</button>
+                                </div>
+                                <!-- SKCK Card -->
+                                <div class="border border-slate-200 rounded-2xl p-3 text-center space-y-2 bg-slate-50">
+                                    <i class="fa-solid fa-shield-halved text-2xl text-brand-600"></i>
+                                    <div class="font-bold text-slate-800">SKCK Kepolisian</div>
+                                    <span class="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Terverifikasi</span>
+                                    <button onclick="triggerNotification('SKCK Kepolisian terverifikasi valid!')" class="block w-full py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100">Lihat SKCK</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL: DRIVER REGISTRATION (PENDAFTARAN MITRA BARU) -->
+    <div id="modal-registration" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto no-scrollbar border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-address-card text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-lg text-slate-900">Pendaftaran Mitra Driver Ngojek</h3>
+                        <p class="text-xs text-slate-500">Isi formulir berikut untuk bergabung menjadi pengemudi resmi.</p>
+                    </div>
+                </div>
+                <button onclick="closeRegistrationModal()" class="text-slate-400 hover:text-slate-600 text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="driver-register-form" onsubmit="submitRegistration(event)" class="space-y-4 text-xs">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Nama Lengkap *</label>
+                        <input type="text" id="reg-name" required placeholder="Sesuai KTP" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Nomor WhatsApp / HP *</label>
+                        <input type="tel" id="reg-phone" required placeholder="08123456xxx" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Alamat Email *</label>
+                        <input type="email" id="reg-email" required placeholder="email@contoh.com" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Kota Domisili *</label>
+                        <input type="text" id="reg-city" required placeholder="Contoh: Jakarta / Bandung" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Layanan Utama Driver</label>
+                        <select id="reg-service" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            <option value="Motor (YourRide)">Motor (YourRide)</option>
+                            <option value="Mobil (YourCar)">Mobil (YourCar)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Plat Nomor Kendaraan *</label>
+                        <input type="text" id="reg-plate" required placeholder="B 1234 ABC" class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none uppercase font-mono">
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <label class="block font-semibold text-slate-700">Unggah Dokumen Pendukung (Foto Clear)</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="border-2 border-dashed border-slate-200 p-3 rounded-xl text-center cursor-pointer hover:border-brand-500 bg-slate-50">
+                            <i class="fa-solid fa-id-card text-brand-600 text-lg"></i>
+                            <span class="block text-[11px] font-medium text-slate-600 mt-1">Foto SIM A/C</span>
+                        </div>
+                        <div class="border-2 border-dashed border-slate-200 p-3 rounded-xl text-center cursor-pointer hover:border-brand-500 bg-slate-50">
+                            <i class="fa-solid fa-file-contract text-brand-600 text-lg"></i>
+                            <span class="block text-[11px] font-medium text-slate-600 mt-1">Foto STNK</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-end space-x-3">
+                    <button type="button" onclick="closeRegistrationModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold">Batal</button>
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl shadow-md transition">Kirim Pendaftaran</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: WITHDRAWAL / TARIK SALDO -->
+    <div id="modal-withdraw" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-slate-100">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-extrabold text-base text-slate-900">Penarikan Pendapatan Mitra</h3>
+                <button onclick="closeWithdrawModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="submitWithdrawal(event)" class="space-y-4 text-xs">
+                <div class="bg-brand-50 p-4 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] text-brand-700 font-semibold">Saldo Siap Ditarik</span>
+                        <div id="withdraw-modal-balance" class="text-xl font-black text-brand-900">Rp 482.500</div>
+                    </div>
+                    <i class="fa-solid fa-wallet text-2xl text-brand-600"></i>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Nominal Penarikan (Rp)</label>
+                    <input type="number" id="withdraw-amount" min="10000" max="1000000" value="200000" required class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 font-bold text-sm">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Tujuan Rekening Bank / E-Wallet</label>
+                    <select class="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500">
+                        <option>Bank BCA - 8830****21 (Budi Santoso)</option>
+                        <option>Bank Mandiri - 1370****99 (Budi Santoso)</option>
+                        <option>GoPay / Ovo - 081234567890</option>
+                    </select>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+                    <button type="button" onclick="closeWithdrawModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold">Batal</button>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2 rounded-xl shadow-md">Proses Tarik Saldo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <script>
+        /* CONSTANTS & RATE CONFIGURATION */
+        const FARE_PER_KM = 6200; // Rp 6.200 per Km
+        const COMMISSION_RATE = 0.08; // 8% app commission
+        
+        /* APPLICATION STATE */
+        let isDriverOnline = true;
+        let activeTrip = null; // Currently accepted / active order object
+        let walletBalance = 482500;
+        let completedTripCount = 8;
+        let totalDistanceKm = 42.5;
+
+        /* INITIAL MOCK ORDER DATA */
+        let incomingOrders = [
+            {
+                id: "NGJ-9042",
+                customerName: "Rina Setyowati",
+                customerPhone: "0812-9988-7711",
+                serviceType: "YourRide (Motor)",
+                pickupLocation: "Mall Grand Indonesia, Lobby West",
+                pickupCoords: [-6.1951, 106.8208],
+                dropoffLocation: "Stasiun Manggarai, Tebet",
+                dropoffCoords: [-6.2098, 106.8502],
+                pickupDistanceKm: 1.2,
+                tripDistanceKm: 4.5,
+                paymentMethod: "QRIS",
+                status: "PENDING", // PENDING, ACCEPTED, AT_PICKUP, ON_TRIP, COMPLETED
+                timestamp: "10:14 AM"
+            }
+        ];
+
+        let historyOrders = [
+            {
+                id: "NGJ-8812",
+                customerName: "Ahmad Fauzi",
+                serviceType: "YourRide",
+                pickup: "Plaza Indonesia",
+                dropoff: "Sudirman Central Business District",
+                totalFare: 32000,
+                commission: 2560,
+                netIncome: 29440,
+                status: "SELESAI",
+                time: "Hari Ini, 09:15"
+            },
+            {
+                id: "NGJ-8790",
+                customerName: "Siti Rahma",
+                serviceType: "YourRide",
+                pickup: "Kuningan City",
+                dropoff: "Stasiun Gambir",
+                totalFare: 45000,
+                commission: 3600,
+                netIncome: 41400,
+                status: "SELESAI",
+                time: "Hari Ini, 08:30"
+            },
+            {
+                id: "NGJ-8640",
+                customerName: "Denny C.",
+                serviceType: "YourCar",
+                pickup: "Kemang Village",
+                dropoff: "Bandara Halim Perdanakusuma",
+                totalFare: 95000,
+                commission: 7600,
+                netIncome: 87400,
+                status: "SELESAI",
+                time: "Kemarin, 17:40"
+            }
+        ];
+
+        /* MAP & LEAFLET VARIABLES */
+        let map = null;
+        let driverMarker = null;
+        let pickupMarker = null;
+        let dropoffMarker = null;
+        let routePolyline = null;
+        const driverCurrentCoords = [-6.1980, 106.8230]; // Central Jakarta default coordinates
+
+        /* WINDOW ONLOAD INITIALIZATION */
+        window.onload = function () {
+            initLeafletMap();
+            renderIncomingOrders();
+            renderHistoryTable();
+            initChart();
+            updateDashboardStats();
+        };
+
+        /* INITIALIZE LEAFLET MAP */
+        function initLeafletMap() {
+            // Center around driver current position
+            map = L.map('driver-map').setView(driverCurrentCoords, 14);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Custom Icon for Driver
+            const driverIcon = L.divIcon({
+                className: 'driver-marker-icon',
+                html: '<div class="w-8 h-8 rounded-full bg-brand-600 border-2 border-white flex items-center justify-center text-white text-xs"><i class="fa-solid fa-motorcycle"></i></div>',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            driverMarker = L.marker(driverCurrentCoords, { icon: driverIcon }).addTo(map)
+                .bindPopup("<b>Posisi Anda (Mitra Driver)</b><br>GPS Signal Strong").openPopup();
+        }
+
+        /* TOGGLE SIDEBAR MOBILE */
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        /* SWITCH NAVIGATION TABS */
+        function switchTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            
+            // Remove active styles from nav links
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.classList.remove('bg-white', 'text-brand-600', 'shadow-md');
+                btn.classList.add('text-white/80');
+            });
+
+            // Show target tab
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            // Set target nav link as active
+            const activeNav = document.getElementById(`nav-${tabId}`);
+            if (activeNav) {
+                activeNav.classList.add('bg-white', 'text-brand-600', 'shadow-md');
+                activeNav.classList.remove('text-white/80');
+            }
+
+            // Page Title Updates
+            const titleMap = {
+                'dashboard': 'DASHBOARD DRIVER',
+                'pesanan': 'ORDER MASUK & EKSEKUSI',
+                'riwayat': 'RIWAYAT PESANAN',
+                'laporan': 'LAPORAN PENDAPATAN & KOMISI',
+                'pengaturan': 'PENGATURAN AKUN MITRA'
+            };
+            document.getElementById('page-title').innerText = titleMap[tabId] || 'DASHBOARD DRIVER';
+
+            // Resize map if switching back to dashboard
+            if (tabId === 'dashboard' && map) {
+                setTimeout(() => { map.invalidateSize(); }, 200);
+            }
+
+            // Close mobile sidebar if open
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar.classList.contains('-translate-x-full') && window.innerWidth < 768) {
+                toggleSidebar();
+            }
+        }
+
+        /* TOGGLE DRIVER ONLINE/OFFLINE STATUS */
+        function toggleDriverOnlineStatus() {
+            isDriverOnline = !isDriverOnline;
+            const statusLabel = document.getElementById('status-label-text');
+            const toggleCircle = document.getElementById('toggle-status-circle');
+            const toggleBtn = document.getElementById('toggle-status-btn');
+
+            if (isDriverOnline) {
+                statusLabel.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span><span>ONLINE</span>';
+                statusLabel.className = 'text-xs font-bold px-3 text-emerald-600 flex items-center gap-1.5';
+                toggleCircle.className = 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5';
+                toggleBtn.className = 'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-emerald-500';
+                triggerNotification('Status Driver sekarang ONLINE. Siap menerima order!');
+            } else {
+                statusLabel.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400"></span><span>OFFLINE</span>';
+                statusLabel.className = 'text-xs font-bold px-3 text-slate-500 flex items-center gap-1.5';
+                toggleCircle.className = 'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-0';
+                toggleBtn.className = 'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-slate-300';
+                triggerNotification('Status Driver sekarang OFFLINE.');
+            }
+        }
+
+        /* FARE CALCULATOR HELPER */
+        function calculateTripFare(distanceKm) {
+            const grossFare = Math.round(distanceKm * FARE_PER_KM);
+            const commission = Math.round(grossFare * COMMISSION_RATE);
+            const netIncome = grossFare - commission;
+            return { grossFare, commission, netIncome };
+        }
+
+        /* TRIGGER RANDOM SIMULATED INCOMING ORDER */
+        function triggerSimulatedOrder() {
+            if (!isDriverOnline) {
+                triggerNotification('Aktifkan status ONLINE terlebih dahulu untuk menerima order!', 'warning');
+                return;
+            }
+
+            const mockNames = ["Budi Gunawan", "Siska Kohl", "Rizky Febian", "Dewi Persik", "Andi Pratama"];
+            const mockPickups = [
+                { name: "Grand Indonesia West Lobby", coords: [-6.1951, 106.8208] },
+                { name: "Stasiun Sudirman", coords: [-6.2023, 106.8236] },
+                { name: "Pacific Place SCBD", coords: [-6.2241, 106.8097] }
+            ];
+            const mockDropoffs = [
+                { name: "Kota Kasablanka Mall", coords: [-6.2238, 106.8431] },
+                { name: "Stasiun Gambir Lobby Utara", coords: [-6.1767, 106.8306] },
+                { name: "Tebet Eco Park", coords: [-6.2372, 106.8528] }
+            ];
+
+            const pick = mockPickups[Math.floor(Math.random() * mockPickups.length)];
+            const drop = mockDropoffs[Math.floor(Math.random() * mockDropoffs.length)];
+            const pickupDist = (Math.random() * 1.8 + 0.5).toFixed(1);
+            const tripDist = (Math.random() * 6.5 + 2.0).toFixed(1);
+
+            const newOrder = {
+                id: "NGJ-" + Math.floor(1000 + Math.random() * 9000),
+                customerName: mockNames[Math.floor(Math.random() * mockNames.length)],
+                customerPhone: "0813-" + Math.floor(10000000 + Math.random() * 90000000),
+                serviceType: "YourRide (Motor)",
+                pickupLocation: pick.name,
+                pickupCoords: pick.coords,
+                dropoffLocation: drop.name,
+                dropoffCoords: drop.coords,
+                pickupDistanceKm: parseFloat(pickupDist),
+                tripDistanceKm: parseFloat(tripDist),
+                paymentMethod: Math.random() > 0.5 ? "Tunai (Cash)" : "QRIS Dompet",
+                status: "PENDING",
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            incomingOrders.unshift(newOrder);
+            renderIncomingOrders();
+            switchTab('pesanan');
+            triggerNotification(`Orderan Masuk dari ${newOrder.customerName}!`, 'info');
+
+            // Show badge
+            document.getElementById('pesanan-badge').classList.remove('hidden');
+        }
+
+        /* RENDER INCOMING ORDERS LIST & LIVE SIMULATION STATE */
+        function renderIncomingOrders() {
+            const container = document.getElementById('orders-list-container');
+            const dashboardWidget = document.getElementById('active-trip-widget');
+
+            if (incomingOrders.length === 0 && !activeTrip) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-400">
+                        <i class="fa-solid fa-inbox text-4xl mb-2"></i>
+                        <p class="text-xs font-semibold">Tidak ada pesanan masuk saat ini.</p>
+                    </div>
+                `;
+                dashboardWidget.innerHTML = `
+                    <div id="searching-order-state" class="text-center py-10 space-y-3">
+                        <div class="w-16 h-16 mx-auto bg-brand-50 rounded-full flex items-center justify-center text-brand-600 text-2xl animate-bounce">
+                            <i class="fa-solid fa-radar"></i>
+                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm">Mencari Pesanan Terdekat...</h4>
+                        <p class="text-xs text-slate-500 max-w-xs mx-auto">Tetap aktifkan status Driver ONLINE untuk menerima permintaan perjalanan dari pelanggan di sekitarmu.</p>
+                        <button onclick="triggerSimulatedOrder()" class="mt-2 text-xs font-bold text-brand-600 hover:text-brand-800 underline">
+                            + Simulasi Terima Order Masuk
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // HTML Generation for Orders Tab
+            let html = '';
+
+            // Render Active Ongoing Trip First if Any
+            if (activeTrip) {
+                const fareData = calculateTripFare(activeTrip.tripDistanceKm);
+                html += `
+                    <div class="bg-gradient-to-r from-brand-600 to-brand-700 text-white rounded-2xl p-5 shadow-lg space-y-4">
+                        <div class="flex items-center justify-between border-b border-white/20 pb-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="bg-amber-400 text-slate-900 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase">SEDANG BERLANGSUNG</span>
+                                <span class="font-mono text-xs opacity-90">ID: ${activeTrip.id}</span>
+                            </div>
+                            <span class="text-xs font-semibold bg-white/20 px-2.5 py-1 rounded-lg"><i class="fa-solid fa-money-bill-wave mr-1"></i>${activeTrip.paymentMethod}</span>
+                        </div>
+
+                        <!-- Customer Info -->
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-bold text-base text-white">${activeTrip.customerName}</h4>
+                                <p class="text-xs text-brand-100"><i class="fa-solid fa-phone text-xs mr-1"></i>${activeTrip.customerPhone}</p>
+                            </div>
+                            <a href="tel:${activeTrip.customerPhone}" class="w-10 h-10 rounded-full bg-white text-brand-600 flex items-center justify-center font-bold shadow-md hover:bg-brand-50 transition">
+                                <i class="fa-solid fa-phone"></i>
+                            </a>
+                        </div>
+
+                        <!-- Trip Route -->
+                        <div class="bg-white/10 p-3.5 rounded-xl space-y-2 text-xs backdrop-blur-sm">
+                            <div class="flex items-start space-x-2">
+                                <i class="fa-solid fa-circle-dot text-amber-300 mt-0.5"></i>
+                                <div>
+                                    <span class="text-[10px] text-brand-200 uppercase font-semibold">Penjemputan (${activeTrip.pickupDistanceKm} km dari posisi)</span>
+                                    <p class="font-semibold text-white">${activeTrip.pickupLocation}</p>
+                                </div>
+                            </div>
+                            <div class="border-l border-dashed border-white/30 ml-1.5 h-3"></div>
+                            <div class="flex items-start space-x-2">
+                                <i class="fa-solid fa-location-dot text-emerald-300 mt-0.5"></i>
+                                <div>
+                                    <span class="text-[10px] text-brand-200 uppercase font-semibold">Tujuan (${activeTrip.tripDistanceKm} km)</span>
+                                    <p class="font-semibold text-white">${activeTrip.dropoffLocation}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions simulation workflow -->
+                        <div class="pt-2 flex flex-col sm:flex-row gap-2">
+                            ${activeTrip.status === 'ACCEPTED' ? `
+                                <button onclick="updateTripStage('AT_PICKUP')" class="w-full bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold py-3 rounded-xl text-xs transition shadow-md flex items-center justify-center space-x-2">
+                                    <i class="fa-solid fa-location-crosshairs"></i>
+                                    <span>TIBA DI LOKASI PENJEMPUTAN</span>
+                                </button>
+                            ` : ''}
+
+                            ${activeTrip.status === 'AT_PICKUP' ? `
+                                <button onclick="updateTripStage('ON_TRIP')" class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 rounded-xl text-xs transition shadow-md flex items-center justify-center space-x-2">
+                                    <i class="fa-solid fa-motorcycle"></i>
+                                    <span>MULAI PERJALANAN (MENUJU TUJUAN)</span>
+                                </button>
+                            ` : ''}
+
+                            ${activeTrip.status === 'ON_TRIP' ? `
+                                <button onclick="updateTripStage('COMPLETED')" class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 rounded-xl text-xs transition shadow-md flex items-center justify-center space-x-2">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span>SELESAIKAN PESANAN (TERIMA RP ${fareData.grossFare.toLocaleString()})</span>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+
+                // Update Dashboard Active Trip Widget
+                dashboardWidget.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="bg-brand-50 border border-brand-200 p-3.5 rounded-2xl">
+                            <span class="text-[10px] font-bold text-brand-600 uppercase">Pelanggan Aktif</span>
+                            <div class="font-bold text-slate-900 text-sm mt-0.5">${activeTrip.customerName}</div>
+                            <div class="text-xs text-slate-500 font-mono">${activeTrip.customerPhone}</div>
+                        </div>
+
+                        <div class="space-y-2 text-xs">
+                            <div class="flex items-start space-x-2">
+                                <i class="fa-solid fa-circle text-amber-500 text-[10px] mt-1"></i>
+                                <span class="text-slate-600 line-clamp-1">${activeTrip.pickupLocation}</span>
+                            </div>
+                            <div class="flex items-start space-x-2">
+                                <i class="fa-solid fa-location-dot text-emerald-600 text-xs mt-0.5"></i>
+                                <span class="text-slate-600 line-clamp-1">${activeTrip.dropoffLocation}</span>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-slate-100 flex justify-between text-xs">
+                            <span class="text-slate-500">Pendapatan Bersih (92%):</span>
+                            <span class="font-bold text-emerald-600">Rp ${fareData.netIncome.toLocaleString()}</span>
+                        </div>
+
+                        <button onclick="switchTab('pesanan')" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow">
+                            Buka Navigasi Perjalanan
+                        </button>
+                    </div>
+                `;
+            }
+
+            // Render Incoming Pending Requests
+            incomingOrders.forEach(order => {
+                const fareData = calculateTripFare(order.tripDistanceKm);
+                html += `
+                    <div class="bg-white border-2 border-brand-200 hover:border-brand-500 rounded-2xl p-5 shadow-sm space-y-4 transition">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="bg-brand-100 text-brand-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full">${order.serviceType}</span>
+                                <span class="text-xs text-slate-400 font-mono">${order.timestamp}</span>
+                            </div>
+                            <span class="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded"><i class="fa-solid fa-wallet mr-1"></i>${order.paymentMethod}</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                            <!-- Customer & Route -->
+                            <div class="space-y-2">
+                                <div>
+                                    <span class="text-slate-400 text-[10px] uppercase font-bold">Pelanggan</span>
+                                    <div class="font-bold text-slate-800 text-sm">${order.customerName} • <span class="text-slate-500 font-normal">${order.customerPhone}</span></div>
+                                </div>
+                                <div class="bg-slate-50 p-3 rounded-xl space-y-1.5 border border-slate-100">
+                                    <div class="flex items-start space-x-2">
+                                        <i class="fa-solid fa-circle-dot text-amber-500 mt-0.5"></i>
+                                        <span class="font-semibold text-slate-700">Jemput (${order.pickupDistanceKm} km): <span class="font-normal text-slate-600">${order.pickupLocation}</span></span>
+                                    </div>
+                                    <div class="flex items-start space-x-2">
+                                        <i class="fa-solid fa-location-dot text-emerald-600 mt-0.5"></i>
+                                        <span class="font-semibold text-slate-700">Tujuan (${order.tripDistanceKm} km): <span class="font-normal text-slate-600">${order.dropoffLocation}</span></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tariff Breakdown -->
+                            <div class="bg-brand-50/60 p-3.5 rounded-xl border border-brand-100 flex flex-col justify-between space-y-2">
+                                <div class="space-y-1">
+                                    <div class="flex justify-between text-slate-600">
+                                        <span>Total Tarif Konsumen:</span>
+                                        <span class="font-bold text-slate-900">Rp ${fareData.grossFare.toLocaleString()}</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-500 text-[11px]">
+                                        <span>Potongan Komisi (8%):</span>
+                                        <span class="text-rose-600 font-medium">- Rp ${fareData.commission.toLocaleString()}</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-900 font-extrabold text-sm pt-1 border-t border-brand-200">
+                                        <span>Pendapatan Bersih Driver:</span>
+                                        <span class="text-emerald-600">Rp ${fareData.netIncome.toLocaleString()}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="grid grid-cols-2 gap-2 pt-1">
+                                    <button onclick="declineOrder('${order.id}')" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 rounded-xl text-xs transition">
+                                        TOLAK
+                                    </button>
+                                    <button onclick="acceptOrder('${order.id}')" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 rounded-xl text-xs transition shadow">
+                                        AMBIL PESANAN
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        /* ACCEPT ORDER ACTION */
+        function acceptOrder(orderId) {
+            const index = incomingOrders.findIndex(o => o.id === orderId);
+            if (index !== -1) {
+                activeTrip = incomingOrders[index];
+                activeTrip.status = 'ACCEPTED';
+                incomingOrders.splice(index, 1); // remove from pending
+
+                // Hide pending badge
+                document.getElementById('pesanan-badge').classList.add('hidden');
+
+                // Render Map Route on Leaflet
+                drawRouteOnMap(activeTrip.pickupCoords, activeTrip.dropoffCoords);
+
+                renderIncomingOrders();
+                triggerNotification(`Pesanan ${activeTrip.id} berhasil diambil! Segera menuju lokasi penjemputan.`, 'success');
+            }
+        }
+
+        /* DECLINE ORDER ACTION */
+        function declineOrder(orderId) {
+            incomingOrders = incomingOrders.filter(o => o.id !== orderId);
+            renderIncomingOrders();
+            triggerNotification('Pesanan ditolak.', 'info');
+        }
+
+        /* UPDATE TRIP LIFECYCLE STAGE */
+        function updateTripStage(newStage) {
+            if (!activeTrip) return;
+
+            activeTrip.status = newStage;
+
+            if (newStage === 'AT_PICKUP') {
+                triggerNotification('Anda telah berada di lokasi penjemputan. Hubungi pelanggan.', 'info');
+            } else if (newStage === 'ON_TRIP') {
+                triggerNotification('Perjalanan dimulai! Tetap utamakan keselamatan berkendara.', 'info');
+            } else if (newStage === 'COMPLETED') {
+                // Calculate fares
+                const fareData = calculateTripFare(activeTrip.tripDistanceKm);
+
+                // Update stats & balance
+                walletBalance += fareData.netIncome;
+                completedTripCount += 1;
+                totalDistanceKm += activeTrip.tripDistanceKm;
+
+                // Push to history
+                historyOrders.unshift({
+                    id: activeTrip.id,
+                    customerName: activeTrip.customerName,
+                    serviceType: activeTrip.serviceType,
+                    pickup: activeTrip.pickupLocation,
+                    dropoff: activeTrip.dropoffLocation,
+                    totalFare: fareData.grossFare,
+                    commission: fareData.commission,
+                    netIncome: fareData.netIncome,
+                    status: "SELESAI",
+                    time: "Baru Saja"
+                });
+
+                triggerNotification(`Pesanan Selesai! Pendapatan +Rp ${fareData.netIncome.toLocaleString()} ditambahkan ke dompet.`, 'success');
+
+                // Clear map routes
+                clearMapRoutes();
+
+                // Reset Active Trip
+                activeTrip = null;
+
+                // Refresh UI
+                updateDashboardStats();
+                renderHistoryTable();
+            }
+
+            renderIncomingOrders();
+        }
+
+        /* DRAW ROUTE AND MARKERS ON LEAFLET MAP */
+        function drawRouteOnMap(pickupCoords, dropoffCoords) {
+            clearMapRoutes();
+
+            // Custom Icons
+            const pickupIcon = L.divIcon({
+                className: 'pickup-marker',
+                html: '<div class="w-7 h-7 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center text-white text-xs shadow-md"><i class="fa-solid fa-circle-dot"></i></div>',
+                iconSize: [28, 28]
+            });
+
+            const dropoffIcon = L.divIcon({
+                className: 'dropoff-marker',
+                html: '<div class="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-white text-xs shadow-md"><i class="fa-solid fa-location-dot"></i></div>',
+                iconSize: [28, 28]
+            });
+
+            pickupMarker = L.marker(pickupCoords, { icon: pickupIcon }).addTo(map).bindPopup("Lokasi Penjemputan");
+            dropoffMarker = L.marker(dropoffCoords, { icon: dropoffIcon }).addTo(map).bindPopup("Tujuan Pelanggan");
+
+            // Draw connecting line
+            const pointList = [driverCurrentCoords, pickupCoords, dropoffCoords];
+            routePolyline = L.polyline(pointList, {
+                color: '#0066FF',
+                weight: 5,
+                opacity: 0.7,
+                dashArray: '8, 8'
+            }).addTo(map);
+
+            // Fit map bounds to show route
+            map.fitBounds(L.latLngBounds(pointList), { padding: [40, 40] });
+        }
+
+        /* CLEAR ROUTE MARKERS FROM LEAFLET MAP */
+        function clearMapRoutes() {
+            if (pickupMarker) map.removeLayer(pickupMarker);
+            if (dropoffMarker) map.removeLayer(dropoffMarker);
+            if (routePolyline) map.removeLayer(routePolyline);
+            map.setView(driverCurrentCoords, 14);
+        }
+
+        /* UPDATE STATS UI */
+        function updateDashboardStats() {
+            document.getElementById('stat-revenue').innerText = `Rp ${walletBalance.toLocaleString()}`;
+            document.getElementById('stat-completed').innerText = `${completedTripCount} Trip`;
+            document.getElementById('stat-distance').innerText = `${totalDistanceKm.toFixed(1)} Km`;
+
+            // Laporan Tab updates
+            document.getElementById('report-wallet-balance').innerText = `Rp ${walletBalance.toLocaleString()}`;
+            document.getElementById('withdraw-modal-balance').innerText = `Rp ${walletBalance.toLocaleString()}`;
+
+            const grossTotal = Math.round(walletBalance / (1 - COMMISSION_RATE));
+            const commTotal = grossTotal - walletBalance;
+
+            document.getElementById('report-gross').innerText = `Rp ${grossTotal.toLocaleString()}`;
+            document.getElementById('report-commission').innerText = `- Rp ${commTotal.toLocaleString()}`;
+            document.getElementById('report-net').innerText = `Rp ${walletBalance.toLocaleString()}`;
+        }
+
+        /* RENDER HISTORY TABLE */
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-table-body');
+            let html = '';
+
+            historyOrders.forEach(item => {
+                html += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="p-3.5">
+                            <div class="font-bold text-slate-900">${item.id}</div>
+                            <div class="text-[10px] text-slate-400">${item.time}</div>
+                        </td>
+                        <td class="p-3.5 font-bold text-slate-800">${item.customerName}</td>
+                        <td class="p-3.5"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">${item.serviceType}</span></td>
+                        <td class="p-3.5 text-slate-600 max-w-xs">
+                            <div class="truncate"><strong>Jemput:</strong> ${item.pickup}</div>
+                            <div class="truncate text-slate-400"><strong>Tujuan:</strong> ${item.dropoff}</div>
+                        </td>
+                        <td class="p-3.5 text-right font-bold text-slate-900">Rp ${item.totalFare.toLocaleString()}</td>
+                        <td class="p-3.5 text-right text-rose-600 font-semibold">- Rp ${item.commission.toLocaleString()}</td>
+                        <td class="p-3.5 text-right font-bold text-emerald-600">Rp ${item.netIncome.toLocaleString()}</td>
+                        <td class="p-3.5 text-center">
+                            <span class="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full text-[10px]">${item.status}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        /* FILTER HISTORY TABLE BY SEARCH QUERY */
+        function filterHistoryTable() {
+            const query = document.getElementById('search-history').value.toLowerCase();
+            const rows = document.querySelectorAll('#history-table-body tr');
+
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            });
+        }
+
+        /* INITIALIZE CHART.JS FOR REPORTS */
+        function initChart() {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'],
+                    datasets: [{
+                        label: 'Pendapatan Bersih (Rp)',
+                        data: [120000, 150000, 184000, 140000, 210000, 260000, 195000],
+                        backgroundColor: '#0066FF',
+                        borderRadius: 8,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'Rp ' + (value/1000) + 'k';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /* MODAL HANDLERS */
+        function openRegistrationModal() {
+            document.getElementById('modal-registration').classList.remove('hidden');
+        }
+
+        function closeRegistrationModal() {
+            document.getElementById('modal-registration').classList.add('hidden');
+        }
+
+        function submitRegistration(event) {
+            event.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const vehicle = document.getElementById('reg-service').value;
+            const plate = document.getElementById('reg-plate').value;
+
+            // Update UI profile with newly registered info
+            document.getElementById('sidebar-driver-name').innerText = name;
+            document.getElementById('sidebar-vehicle-plate').innerText = `${plate} • ${vehicle.includes('Motor') ? 'Motor' : 'Mobil'}`;
+            document.getElementById('profile-card-name').innerText = name;
+            document.getElementById('profile-card-vehicle').innerText = `${vehicle} (${plate})`;
+
+            closeRegistrationModal();
+            triggerNotification('Pendaftaran Mitra Berhasil! Selamat datang di Aplikasi Driver Ngojek.', 'success');
+        }
+
+        function openWithdrawModal() {
+            document.getElementById('modal-withdraw').classList.remove('hidden');
+        }
+
+        function closeWithdrawModal() {
+            document.getElementById('modal-withdraw').classList.add('hidden');
+        }
+
+        function submitWithdrawal(event) {
+            event.preventDefault();
+            const amount = parseInt(document.getElementById('withdraw-amount').value);
+
+            if (amount > walletBalance) {
+                triggerNotification('Saldo tidak mencukupi untuk penarikan ini.', 'warning');
+                return;
+            }
+
+            walletBalance -= amount;
+            updateDashboardStats();
+            closeWithdrawModal();
+            triggerNotification(`Penarikan dana sebesar Rp ${amount.toLocaleString()} sedang diproses ke rekening Anda.`, 'success');
+        }
+
+        /* PROFILE SAVE */
+        function saveProfileSettings(e) {
+            e.preventDefault();
+            const name = document.getElementById('edit-name').value;
+            const phone = document.getElementById('edit-phone').value;
+            const plate = document.getElementById('edit-plate').value;
+            const vehicle = document.getElementById('edit-vehicle-type').value;
+
+            document.getElementById('sidebar-driver-name').innerText = name;
+            document.getElementById('sidebar-vehicle-plate').innerText = `${plate} • ${vehicle.includes('Motor') ? 'Motor' : 'Mobil'}`;
+            document.getElementById('profile-card-name').innerText = name;
+            document.getElementById('profile-card-phone').innerText = phone;
+            document.getElementById('profile-card-vehicle').innerText = `${vehicle} (${plate})`;
+
+            triggerNotification('Pengaturan profil driver berhasil disimpan.', 'success');
+        }
+
+        /* PREVIEW AVATAR UPLOAD */
+        function previewAvatar(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('sidebar-avatar').src = e.target.result;
+                    document.getElementById('profile-card-avatar').src = e.target.result;
+                    triggerNotification('Foto profil driver berhasil diperbarui!', 'success');
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        /* TOAST NOTIFICATION POPUP HELPER */
+        function triggerNotification(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            const bgColors = {
+                'success': 'bg-emerald-600 text-white',
+                'warning': 'bg-amber-500 text-slate-900',
+                'info': 'bg-brand-600 text-white'
+            };
+
+            toast.className = `${bgColors[type] || bgColors['info']} px-4 py-3 rounded-xl shadow-xl text-xs font-bold flex items-center space-x-2 transform transition-all duration-300 translate-y-4 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `
+                <i class="fa-solid fa-circle-check"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
