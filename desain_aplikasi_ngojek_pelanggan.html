@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ngojek - Layanan Transportasi Online</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Leaflet CSS & JS for Interactive Map & Tracking -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ngojek: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            500: '#0066FF',
+                            600: '#0B5ED7',
+                            700: '#0242a5',
+                            dark: '#0f172a'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #1e293b;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .app-container {
+            max-width: 480px;
+            min-height: 100vh;
+            margin: 0 auto;
+            background-color: #ffffff;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+        }
+        .pulse-ring-blue {
+            border: 3px solid #0066FF;
+            border-radius: 50%;
+            height: 40px;
+            width: 40px;
+            position: absolute;
+            left: -10px;
+            top: -10px;
+            animation: pulsate 1.5s infinite ease-out;
+            opacity: 0;
+        }
+        @keyframes pulsate {
+            0% { transform: scale(0.1, 0.1); opacity: 0.0; }
+            50% { opacity: 1.0; }
+            100% { transform: scale(1.2, 1.2); opacity: 0.0; }
+        }
+        .leaflet-touch .leaflet-control-layers, .leaflet-touch .leaflet-bar {
+            border: none !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex justify-center items-center p-0 sm:p-4">
+
+    <!-- Main Container -->
+    <div class="app-container relative overflow-hidden flex flex-col w-full min-h-screen sm:min-h-[840px] sm:h-[840px] sm:rounded-3xl border border-gray-100">
+
+        <!-- Header -->
+        <header id="main-header" class="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2 cursor-pointer" onclick="navigateTo('home')">
+                <div class="w-9 h-9 bg-ngojek-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-ngojek-500/20">
+                    <i data-lucide="navigation" class="w-5 h-5 fill-current transform rotate-45"></i>
+                </div>
+                <div>
+                    <span class="text-xl font-black tracking-tight text-ngojek-dark">Ngojek</span>
+                    <span class="inline-block w-2 h-2 rounded-full bg-ngojek-500 ml-0.5"></span>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+                <button onclick="navigateTo('profile')" class="flex items-center space-x-2 bg-ngojek-50 border border-ngojek-100 p-1.5 pr-3 rounded-full hover:bg-ngojek-100 transition-colors">
+                    <img id="header-user-avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="w-7 h-7 rounded-full object-cover border border-ngojek-500" />
+                    <span id="header-user-name" class="text-xs font-semibold text-gray-800 max-w-[80px] truncate">Budi</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Scrollable Content -->
+        <main class="flex-1 overflow-y-auto no-scrollbar pb-20 relative bg-white">
+
+            <!-- 1. HOME SCREEN VIEW -->
+            <section id="view-home" class="view-screen p-4 space-y-5">
+                
+                <!-- Greeting Banner -->
+                <div class="bg-gradient-to-br from-ngojek-600 via-ngojek-500 to-blue-700 rounded-2xl p-4 text-white shadow-lg shadow-ngojek-500/20 relative overflow-hidden">
+                    <div class="relative z-10">
+                        <p class="text-xs font-medium text-ngojek-100 uppercase tracking-wider mb-1">Selamat Datang</p>
+                        <h1 id="home-greeting-name" class="text-xl font-bold">Halo, Budi Santoso! 👋</h1>
+                        <p class="text-xs text-blue-100 mt-1">Mau pergi ke mana hari ini? Siap melayani!</p>
+                    </div>
+                    <div class="absolute -right-4 -bottom-6 opacity-15">
+                        <i data-lucide="map-pin" class="w-32 h-32 text-white"></i>
+                    </div>
+                </div>
+
+                <!-- Quick Pick-Up Selector -->
+                <div class="bg-white rounded-2xl p-3 border border-gray-200 shadow-xs space-y-2">
+                    <div class="flex items-center space-x-3 bg-ngojek-50/60 p-2.5 rounded-xl border border-ngojek-100 cursor-pointer hover:border-ngojek-500 transition-colors" onclick="openRideBooking('ride')">
+                        <div class="w-8 h-8 rounded-full bg-ngojek-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                            <i data-lucide="map-pin" class="w-4 h-4"></i>
+                        </div>
+                        <div class="flex-1 text-left min-w-0">
+                            <p class="text-[10px] uppercase font-bold text-ngojek-600">Lokasi Penjemputan</p>
+                            <p id="home-pickup-label" class="text-xs font-semibold text-gray-800 truncate">Jl. Jendral Sudirman No. 42, Jakarta</p>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <!-- Main Service Cards Grid -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center px-1">
+                        <h2 class="text-sm font-bold text-gray-800">Layanan Utama</h2>
+                        <span class="text-[11px] text-ngojek-600 font-bold">Rp 6.200 / Km</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- YourRide Card -->
+                        <button onclick="openRideBooking('ride')" class="group bg-white p-4 rounded-2xl border border-gray-200 shadow-xs hover:shadow-md hover:border-ngojek-500 transition-all text-left flex flex-col justify-between h-36 relative overflow-hidden">
+                            <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-ngojek-500 group-hover:scale-105 transition-transform">
+                                <i data-lucide="bike" class="w-7 h-7"></i>
+                            </div>
+                            <div class="mt-2">
+                                <div class="flex items-center space-x-1">
+                                    <span class="font-bold text-base text-gray-900">YourRide</span>
+                                    <span class="bg-blue-100 text-ngojek-700 text-[9px] px-1.5 py-0.5 rounded-full font-bold">Cepat</span>
+                                </div>
+                                <p class="text-[11px] text-gray-500 mt-0.5">Ojek motor Rp 6.200/km</p>
+                            </div>
+                            <div class="absolute -right-2 -bottom-2 opacity-5 group-hover:opacity-10 transition-opacity">
+                                <i data-lucide="bike" class="w-20 h-20 text-ngojek-600"></i>
+                            </div>
+                        </button>
+
+                        <!-- YourCar Card -->
+                        <button onclick="openRideBooking('car')" class="group bg-white p-4 rounded-2xl border border-gray-200 shadow-xs hover:shadow-md hover:border-ngojek-500 transition-all text-left flex flex-col justify-between h-36 relative overflow-hidden">
+                            <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-ngojek-600 group-hover:scale-105 transition-transform">
+                                <i data-lucide="car" class="w-7 h-7"></i>
+                            </div>
+                            <div class="mt-2">
+                                <div class="flex items-center space-x-1">
+                                    <span class="font-bold text-base text-gray-900">YourCar</span>
+                                    <span class="bg-blue-100 text-ngojek-700 text-[9px] px-1.5 py-0.5 rounded-full font-bold">Nyaman</span>
+                                </div>
+                                <p class="text-[11px] text-gray-500 mt-0.5">Taksi mobil Rp 8.500/km</p>
+                            </div>
+                            <div class="absolute -right-2 -bottom-2 opacity-5 group-hover:opacity-10 transition-opacity">
+                                <i data-lucide="car" class="w-20 h-20 text-ngojek-600"></i>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Favorite Destinations Shortcuts -->
+                <div class="space-y-2">
+                    <h2 class="text-sm font-bold text-gray-800 px-1">Tujuan Populer</h2>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="quickSelectDestination('Rumah', 'Jl. Kebon Jeruk Raya No. 12', 3.2)" class="bg-white p-3 rounded-xl border border-gray-200 text-center hover:bg-ngojek-50 transition-colors flex flex-col items-center">
+                            <div class="w-9 h-9 bg-blue-50 text-ngojek-500 rounded-full flex items-center justify-center mb-1.5">
+                                <i data-lucide="home" class="w-4 h-4"></i>
+                            </div>
+                            <span class="text-xs font-semibold text-gray-800">Rumah</span>
+                            <span class="text-[10px] text-gray-400 truncate w-full">Kebon Jeruk (3.2 km)</span>
+                        </button>
+
+                        <button onclick="quickSelectDestination('Kantor', 'Gedung Menara Mulia, Gatot Subroto', 5.8)" class="bg-white p-3 rounded-xl border border-gray-200 text-center hover:bg-ngojek-50 transition-colors flex flex-col items-center">
+                            <div class="w-9 h-9 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mb-1.5">
+                                <i data-lucide="briefcase" class="w-4 h-4"></i>
+                            </div>
+                            <span class="text-xs font-semibold text-gray-800">Kantor</span>
+                            <span class="text-[10px] text-gray-400 truncate w-full">Gatot Subroto (5.8 km)</span>
+                        </button>
+
+                        <button onclick="quickSelectDestination('Mall', 'Grand Indonesia Mall, Kebon Melati', 2.5)" class="bg-white p-3 rounded-xl border border-gray-200 text-center hover:bg-ngojek-50 transition-colors flex flex-col items-center">
+                            <div class="w-9 h-9 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center mb-1.5">
+                                <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                            </div>
+                            <span class="text-xs font-semibold text-gray-800">Mall</span>
+                            <span class="text-[10px] text-gray-400 truncate w-full">Grand Indonesia (2.5 km)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Promo Carousel -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center px-1">
+                        <h2 class="text-sm font-bold text-gray-800">Promo Hari Ini</h2>
+                        <span class="text-xs text-ngojek-600 font-semibold cursor-pointer" onclick="showToast('Menampilkan promo aktif')">Lihat Semua</span>
+                    </div>
+                    <div class="flex space-x-3 overflow-x-auto no-scrollbar pb-1">
+                        <div class="shrink-0 w-64 bg-gradient-to-r from-blue-600 to-ngojek-500 p-3.5 rounded-2xl text-white shadow-xs flex flex-col justify-between">
+                            <div>
+                                <span class="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">DISKON 50%</span>
+                                <h3 class="font-bold text-sm mt-1">Potongan Tarif Perjalanan!</h3>
+                                <p class="text-[10px] opacity-90 mt-0.5">Kode: <strong class="underline">DISKON50</strong></p>
+                            </div>
+                            <button onclick="applyPromoCodeInput('DISKON50')" class="mt-3 bg-white text-ngojek-600 text-xs font-bold py-1.5 px-3 rounded-lg self-start hover:bg-blue-50 transition-colors">Pakai Promo</button>
+                        </div>
+
+                        <div class="shrink-0 w-64 bg-gradient-to-r from-indigo-600 to-blue-700 p-3.5 rounded-2xl text-white shadow-xs flex flex-col justify-between">
+                            <div>
+                                <span class="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">PROMO JUARA</span>
+                                <h3 class="font-bold text-sm mt-1">Potongan Rp 10.000</h3>
+                                <p class="text-[10px] opacity-90 mt-0.5">Kode: <strong class="underline">PROMOJUARA</strong></p>
+                            </div>
+                            <button onclick="applyPromoCodeInput('PROMOJUARA')" class="mt-3 bg-white text-indigo-700 text-xs font-bold py-1.5 px-3 rounded-lg self-start hover:bg-indigo-50 transition-colors">Pakai Promo</button>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- 2. BOOKING SCREEN VIEW -->
+            <section id="view-booking" class="view-screen hidden flex-col min-h-full">
+                <!-- Sub-header -->
+                <div class="bg-white px-4 py-3 border-b border-gray-200 flex items-center justify-between sticky top-0 z-10">
+                    <button onclick="navigateTo('home')" class="p-1 rounded-full hover:bg-gray-100">
+                        <i data-lucide="arrow-left" class="w-5 h-5 text-gray-700"></i>
+                    </button>
+                    <h2 id="booking-title" class="font-bold text-base text-gray-800">Pemesanan YourRide</h2>
+                    <div class="w-5"></div>
+                </div>
+
+                <!-- Pickup & Dropoff Inputs -->
+                <div class="p-4 bg-white border-b border-gray-200 space-y-3">
+                    <!-- Pickup Input -->
+                    <div class="flex items-center space-x-3 bg-gray-50 p-2.5 rounded-xl border border-gray-200 focus-within:border-ngojek-500">
+                        <div class="w-3 h-3 rounded-full bg-blue-600 ring-4 ring-blue-100 shrink-0"></div>
+                        <div class="flex-1">
+                            <label class="block text-[10px] font-bold text-ngojek-600 uppercase">Titik Jemput</label>
+                            <input type="text" id="input-pickup" value="Jl. Jendral Sudirman No. 42, Jakarta" class="w-full bg-transparent text-xs font-semibold text-gray-800 focus:outline-none" placeholder="Pilih titik jemput">
+                        </div>
+                        <i data-lucide="crosshair" class="w-4 h-4 text-ngojek-500 cursor-pointer" title="Gunakan GPS" onclick="setCurrentLocationPickup()"></i>
+                    </div>
+
+                    <!-- Dropoff Input -->
+                    <div class="flex items-center space-x-3 bg-gray-50 p-2.5 rounded-xl border border-gray-200 focus-within:border-ngojek-500">
+                        <div class="w-3 h-3 rounded-full bg-red-500 ring-4 ring-red-100 shrink-0"></div>
+                        <div class="flex-1">
+                            <label class="block text-[10px] font-bold text-red-500 uppercase">Titik Tujuan</label>
+                            <input type="text" id="input-destination" value="Grand Indonesia Mall, Kebon Melati" class="w-full bg-transparent text-xs font-semibold text-gray-800 focus:outline-none" placeholder="Pilih titik tujuan">
+                        </div>
+                        <i data-lucide="map-pin" class="w-4 h-4 text-red-500"></i>
+                    </div>
+
+                    <!-- Interactive Map Location Picker Container -->
+                    <div class="rounded-xl overflow-hidden border border-gray-200 relative">
+                        <div id="picker-map" class="w-full h-44 z-0"></div>
+                        <div class="absolute bottom-2 left-2 right-2 z-10 bg-white/90 backdrop-blur-xs p-2 rounded-lg text-[10px] text-gray-700 font-semibold shadow-xs flex justify-between items-center">
+                            <span>📍 Ketuk peta untuk ubah titik tujuan</span>
+                            <span id="picker-distance-tag" class="bg-ngojek-500 text-white font-bold px-2 py-0.5 rounded">2.5 Km</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service Tiers, Promo & Payment -->
+                <div class="p-4 space-y-3 flex-1 bg-gray-50">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Opsi Layanan & Tarif</h3>
+                    
+                    <div id="service-options-container" class="space-y-2">
+                        <!-- Dynamic options injected via JS -->
+                    </div>
+
+                    <!-- Payment Method Selector (Cash or QRIS ONLY) -->
+                    <div class="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between shadow-xs mt-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-ngojek-600 flex items-center justify-center" id="payment-icon-container">
+                                <i data-lucide="banknote" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <p id="selected-payment-name" class="text-xs font-bold text-gray-800">Cash (Tunai)</p>
+                                <p id="selected-payment-sub" class="text-[10px] text-gray-500">Bayar tunai ke pengemudi</p>
+                            </div>
+                        </div>
+                        <button onclick="togglePaymentMethod()" class="text-xs font-bold text-ngojek-600 bg-ngojek-50 px-2.5 py-1.5 rounded-lg border border-ngojek-200 hover:bg-ngojek-100">
+                            Ganti Metode
+                        </button>
+                    </div>
+
+                    <!-- Input Promo Voucher -->
+                    <div class="bg-white p-3 rounded-xl border border-gray-200 space-y-2">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase">Kode Promo / Voucher</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="input-promo-code" placeholder="Contoh: DISKON50" class="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs uppercase font-bold focus:outline-none focus:border-ngojek-500">
+                            <button onclick="applyManualPromoCode()" class="bg-ngojek-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg hover:bg-ngojek-600 transition-colors">
+                                Pasang
+                            </button>
+                        </div>
+                        <div id="active-promo-badge" class="hidden text-[11px] text-emerald-600 font-bold bg-emerald-50 p-1.5 rounded border border-emerald-200 flex justify-between items-center">
+                            <span id="promo-text-description">Promo Aktif: DISKON50 (-50%)</span>
+                            <button onclick="removePromoCode()" class="text-red-500 hover:underline">Hapus</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Order Action -->
+                <div class="p-4 bg-white border-t border-gray-200 sticky bottom-0">
+                    <button id="btn-submit-booking" onclick="startOrderDispatch()" class="w-full bg-ngojek-500 hover:bg-ngojek-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-ngojek-500/20 flex items-center justify-between transition-colors">
+                        <span id="btn-booking-text">Pesan Sekarang</span>
+                        <span id="btn-booking-price" class="text-sm font-extrabold bg-ngojek-700/30 px-2.5 py-1 rounded-lg">Rp 15.500</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 3. LIVE MAP SIMULATION TRACKING VIEW -->
+            <section id="view-tracking" class="view-screen hidden flex-col h-full absolute inset-0 bg-white z-20">
+                <!-- Map Header Overlay -->
+                <div class="absolute top-3 left-3 right-3 z-20 bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-md border border-gray-200 flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-ngojek-500 animate-ping"></span>
+                        <h3 id="tracking-status-title" class="text-xs font-bold text-gray-800">Menghubungkan Pengemudi...</h3>
+                    </div>
+                    <span id="live-eta-badge" class="bg-ngojek-50 text-ngojek-700 text-[10px] font-extrabold px-2.5 py-1 rounded-lg border border-ngojek-200">
+                        ETA: -- Min
+                    </span>
+                </div>
+
+                <!-- Leaflet Live Map Canvas -->
+                <div id="live-map" class="w-full flex-1 z-10 min-h-[300px]"></div>
+
+                <!-- Bottom Tracking Sheet -->
+                <div class="bg-white border-t border-gray-200 p-4 rounded-t-3xl shadow-2xl z-20 space-y-3">
+                    
+                    <!-- Progress Bar for Ride Lifecycle -->
+                    <div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                        <div id="tracking-progress-bar" class="bg-ngojek-500 h-full w-1/4 transition-all duration-500"></div>
+                    </div>
+
+                    <!-- Driver Profile Card -->
+                    <div id="tracking-driver-card" class="flex items-center justify-between bg-gray-50 p-3 rounded-2xl border border-gray-200">
+                        <div class="flex items-center space-x-3">
+                            <div class="relative">
+                                <img id="driver-avatar-img" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" class="w-11 h-11 rounded-2xl object-cover border border-ngojek-500" alt="Driver">
+                                <span class="absolute -bottom-1 -right-1 bg-yellow-400 text-[9px] font-bold px-1 rounded text-gray-900 border border-white">★ 4.9</span>
+                            </div>
+                            <div>
+                                <h4 id="driver-name" class="font-bold text-xs text-gray-800">Ahmad Subagyo</h4>
+                                <p id="driver-vehicle" class="text-[10px] text-gray-500">Honda Vario • <strong class="text-gray-800">B 3829 TKN</strong></p>
+                                <p id="driver-status-text" class="text-[10px] font-semibold text-ngojek-600 mt-0.5">Sistem sedang mencari pengemudi...</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-1.5">
+                            <button onclick="showToast('Menghubungi Driver...')" class="p-2 bg-white text-gray-700 rounded-xl border border-gray-200 shadow-xs hover:bg-gray-100">
+                                <i data-lucide="phone" class="w-4 h-4 text-ngojek-600"></i>
+                            </button>
+                            <button onclick="showToast('Membuka Chat Driver...')" class="p-2 bg-ngojek-500 text-white rounded-xl shadow-xs hover:bg-ngojek-600">
+                                <i data-lucide="message-square" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Journey Details -->
+                    <div class="bg-gray-50 p-2.5 rounded-xl border border-gray-200 space-y-1 text-[11px]">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                            <span class="text-gray-400 font-semibold w-12">Jemput:</span>
+                            <span id="track-pickup-text" class="text-gray-800 font-medium truncate">Jl. Jendral Sudirman No. 42</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                            <span class="text-gray-400 font-semibold w-12">Tujuan:</span>
+                            <span id="track-dropoff-text" class="text-gray-800 font-medium truncate">Grand Indonesia Mall</span>
+                        </div>
+                    </div>
+
+                    <!-- Buttons: Cancel / Fast Forward -->
+                    <div class="flex items-center space-x-2 pt-1">
+                        <button id="btn-cancel-ride" onclick="cancelActiveRide()" class="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 rounded-xl text-xs transition-colors border border-red-200">
+                            Batalkan Pesanan
+                        </button>
+                        <button id="btn-advance-phase" onclick="forceNextPhase()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2.5 rounded-xl text-xs transition-colors flex items-center space-x-1">
+                            <span>Simulasi Lanjut</span>
+                            <i data-lucide="fast-forward" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- 4. ORDER HISTORY SCREEN VIEW -->
+            <section id="view-orders" class="view-screen hidden p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h1 class="text-lg font-bold text-gray-800">Riwayat Pemesanan</h1>
+                    <span class="text-xs text-gray-400">Daftar Transaksi</span>
+                </div>
+
+                <!-- Filter Tabs -->
+                <div class="flex space-x-2 border-b border-gray-200 pb-2">
+                    <button onclick="filterOrderHistory('all')" id="filter-all" class="text-xs font-bold text-ngojek-600 border-b-2 border-ngojek-500 pb-1 px-1">Semua</button>
+                    <button onclick="filterOrderHistory('ride')" id="filter-ride" class="text-xs font-medium text-gray-500 pb-1 px-1">YourRide</button>
+                    <button onclick="filterOrderHistory('car')" id="filter-car" class="text-xs font-medium text-gray-500 pb-1 px-1">YourCar</button>
+                </div>
+
+                <!-- Orders Container -->
+                <div id="orders-list" class="space-y-3">
+                    <!-- Dynamic history content -->
+                </div>
+            </section>
+
+            <!-- 5. PROFILE SCREEN VIEW (Exact Spec Structure) -->
+            <section id="view-profile" class="view-screen hidden p-4 space-y-5">
+                
+                <!-- Profile Header & Avatar Change -->
+                <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs flex items-center space-x-4">
+                    <div class="relative group">
+                        <img id="profile-avatar-img" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80" alt="Foto Profil" class="w-16 h-16 rounded-2xl object-cover border-2 border-ngojek-500 shadow-xs">
+                        <button onclick="openAvatarChangeModal()" class="absolute -bottom-1 -right-1 bg-ngojek-500 text-white p-1 rounded-lg shadow-md hover:bg-ngojek-600" title="Ganti Foto Profil">
+                            <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h2 id="profile-name-text" class="font-bold text-base text-gray-800 truncate">Budi Santoso</h2>
+                        <p id="profile-email-text" class="text-xs text-gray-500 truncate">budi.santoso@gmail.com</p>
+                        <p id="profile-phone-text" class="text-[11px] font-semibold text-ngojek-600 mt-0.5">+62 812-3456-7890</p>
+                    </div>
+                </div>
+
+                <!-- MENU GROUP 1: PENGATURAN & KEAMANAN -->
+                <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+                    <div class="px-4 py-2.5 bg-blue-50/50 border-b border-gray-200 flex items-center space-x-2">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-ngojek-600"></i>
+                        <span class="text-[11px] font-bold text-ngojek-700 uppercase tracking-wider">PENGATURAN & KEAMANAN</span>
+                    </div>
+                    <div class="divide-y divide-gray-100">
+                        <!-- Pengaturan kata sandi -->
+                        <button onclick="openModalSettings('password')" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="key" class="w-4 h-4 text-gray-600"></i>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-800">Pengaturan Kata Sandi</p>
+                                    <p class="text-[10px] text-gray-400">Mengubah kata sandi akun</p>
+                                </div>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                        </button>
+
+                        <!-- Pengaturan Pin Ngojek -->
+                        <button onclick="openModalSettings('pin')" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="lock" class="w-4 h-4 text-gray-600"></i>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-800">Pengaturan PIN Ngojek</p>
+                                    <p class="text-[10px] text-gray-400">Mengatur PIN saat masuk aplikasi</p>
+                                </div>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                        </button>
+
+                        <!-- Pengaturan Akun -->
+                        <button onclick="openModalSettings('account')" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="user-cog" class="w-4 h-4 text-gray-600"></i>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-800">Pengaturan Akun</p>
+                                    <p class="text-[10px] text-gray-400">Mengatur nomor, email, nama, dan foto profil</p>
+                                </div>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- MENU GROUP 2: LAYANAN & BANTUAN -->
+                <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+                    <div class="px-4 py-2.5 bg-blue-50/50 border-b border-gray-200 flex items-center space-x-2">
+                        <i data-lucide="help-circle" class="w-4 h-4 text-ngojek-600"></i>
+                        <span class="text-[11px] font-bold text-ngojek-700 uppercase tracking-wider">LAYANAN & BANTUAN</span>
+                    </div>
+                    <div class="divide-y divide-gray-100">
+                        <!-- Ketentuan dan layanan -->
+                        <button onclick="openModalSettings('terms')" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="file-text" class="w-4 h-4 text-gray-600"></i>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-800">Ketentuan dan Layanan</p>
+                                    <p class="text-[10px] text-gray-400">Ketentuan dan syarat layanan Ngojek</p>
+                                </div>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                        </button>
+
+                        <!-- Layanan Pelanggan -->
+                        <button onclick="openModalSettings('cs')" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="headphone-off" class="w-4 h-4 text-gray-600"></i>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-800">Layanan Pelanggan</p>
+                                    <p class="text-[10px] text-gray-400">Customer Service 24 Jam</p>
+                                </div>
+                            </div>
+                            <span class="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">Online</span>
+                        </button>
+
+                        <!-- Kotak Surat -->
+                        <button onclick="openModalSettings('mailbox')" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="mail" class="w-4 h-4 text-gray-600"></i>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-800">Kotak Surat</p>
+                                    <p class="text-[10px] text-gray-400">Saran, masukan, dan keluhan pelanggan</p>
+                                </div>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+                        </button>
+
+                        <!-- Tentang Kami -->
+                        <button onclick="openModalSettings('about')" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <i data-lucide="info" class="w-4 h-4 text-gray-600"></i>
+                                <div>
+                                    <p class="text-xs font-semibold text-gray-800">Tentang Kami</p>
+                                    <p class="text-[10px] text-gray-400">Versi aplikasi dan profil perusahaan</p>
+                                </div>
+                            </div>
+                            <span class="text-[10px] text-gray-400 font-bold">v2.4.0</span>
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- Fixed Navigation Bar -->
+        <nav class="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-2.5 flex justify-around items-center z-30 shadow-lg">
+            <button onclick="navigateTo('home')" id="nav-home" class="nav-btn flex flex-col items-center space-y-1 text-ngojek-500">
+                <i data-lucide="home" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold">Beranda</span>
+            </button>
+            <button onclick="navigateTo('orders')" id="nav-orders" class="nav-btn flex flex-col items-center space-y-1 text-gray-400 hover:text-ngojek-500">
+                <i data-lucide="receipt" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold">Pesanan</span>
+            </button>
+            <button onclick="navigateTo('profile')" id="nav-profile" class="nav-btn flex flex-col items-center space-y-1 text-gray-400 hover:text-ngojek-500">
+                <i data-lucide="user" class="w-5 h-5"></i>
+                <span class="text-[10px] font-bold">Profil</span>
+            </button>
+        </nav>
+
+        <!-- Payment & Rating Modal (Cash / QRIS) -->
+        <div id="modal-completion" class="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end hidden backdrop-blur-xs">
+            <div class="bg-white rounded-t-3xl p-5 space-y-4 max-w-[480px] w-full mx-auto max-h-[90vh] overflow-y-auto">
+                <div class="w-12 h-1 bg-gray-200 rounded-full mx-auto"></div>
+                
+                <div class="text-center space-y-1">
+                    <div class="w-12 h-12 bg-blue-100 text-ngojek-600 rounded-full flex items-center justify-center mx-auto mb-1">
+                        <i data-lucide="check-circle-2" class="w-7 h-7"></i>
+                    </div>
+                    <h3 class="font-bold text-base text-gray-800">Perjalanan Selesai!</h3>
+                    <p class="text-xs text-gray-500">Selesaikan pembayaran & berikan ulasan driver</p>
+                </div>
+
+                <!-- QRIS Image Box (Shown if QRIS is chosen) -->
+                <div id="qris-box-container" class="hidden bg-gray-50 p-4 rounded-2xl border border-gray-200 text-center space-y-2">
+                    <p class="text-xs font-bold text-gray-800">Pindai QRIS Untuk Membayar</p>
+                    <div class="w-36 h-36 bg-white p-2 border border-gray-300 rounded-xl mx-auto flex items-center justify-center shadow-xs">
+                        <!-- Simulated QR Code SVG -->
+                        <svg class="w-full h-full text-gray-900" viewBox="0 0 100 100" fill="currentColor">
+                            <rect x="0" y="0" width="30" height="30" />
+                            <rect x="5" y="5" width="20" height="20" fill="white"/>
+                            <rect x="10" y="10" width="10" height="10" fill="currentColor"/>
+                            <rect x="70" y="0" width="30" height="30" />
+                            <rect x="75" y="5" width="20" height="20" fill="white"/>
+                            <rect x="80" y="10" width="10" height="10" fill="currentColor"/>
+                            <rect x="0" y="70" width="30" height="30" />
+                            <rect x="5" y="75" width="20" height="20" fill="white"/>
+                            <rect x="10" y="80" width="10" height="10" fill="currentColor"/>
+                            <rect x="40" y="10" width="15" height="15"/>
+                            <rect x="40" y="40" width="20" height="20"/>
+                            <rect x="70" y="70" width="15" height="25"/>
+                        </svg>
+                    </div>
+                    <p class="text-[10px] text-gray-500">Bisa menggunakan m-Banking atau e-Wallet apapun</p>
+                </div>
+
+                <!-- Payment Breakdown -->
+                <div class="bg-gray-50 p-3.5 rounded-2xl border border-gray-200 space-y-2 text-xs">
+                    <div class="flex justify-between text-gray-500">
+                        <span>Tarif Perjalanan (<span id="complete-distance-text">2.5 Km</span>)</span>
+                        <span id="complete-base-fare">Rp 15.500</span>
+                    </div>
+                    <div id="complete-discount-row" class="flex justify-between text-emerald-600 hidden">
+                        <span>Diskon Promo</span>
+                        <span id="complete-discount-amount">-Rp 0</span>
+                    </div>
+                    <div class="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-800 text-sm">
+                        <span>Total Bayar</span>
+                        <span id="complete-total-fare" class="text-ngojek-600">Rp 15.500</span>
+                    </div>
+                    <div class="pt-1 flex items-center justify-between text-[11px] text-gray-500">
+                        <span>Metode Pembayaran</span>
+                        <span id="complete-payment-method" class="font-bold text-gray-800 bg-white px-2 py-0.5 rounded border border-gray-200">Cash (Tunai)</span>
+                    </div>
+                </div>
+
+                <!-- Rating Form -->
+                <div class="space-y-2 text-center pt-1">
+                    <p class="text-xs font-bold text-gray-700">Berikan Penilaian Pengemudi</p>
+                    <div id="star-rating-container" class="flex justify-center space-x-2">
+                        <button onclick="setStarRating(1)" class="star-btn p-1 text-gray-300 hover:text-yellow-400"><i data-lucide="star" class="w-7 h-7 fill-current"></i></button>
+                        <button onclick="setStarRating(2)" class="star-btn p-1 text-gray-300 hover:text-yellow-400"><i data-lucide="star" class="w-7 h-7 fill-current"></i></button>
+                        <button onclick="setStarRating(3)" class="star-btn p-1 text-gray-300 hover:text-yellow-400"><i data-lucide="star" class="w-7 h-7 fill-current"></i></button>
+                        <button onclick="setStarRating(4)" class="star-btn p-1 text-gray-300 hover:text-yellow-400"><i data-lucide="star" class="w-7 h-7 fill-current"></i></button>
+                        <button onclick="setStarRating(5)" class="star-btn p-1 text-yellow-400"><i data-lucide="star" class="w-7 h-7 fill-current"></i></button>
+                    </div>
+
+                    <textarea id="review-input" rows="2" class="w-full bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-xs focus:outline-none focus:border-ngojek-500" placeholder="Tuliskan masukan untuk pengemudi..."></textarea>
+                </div>
+
+                <button onclick="submitReviewAndFinish()" class="w-full bg-ngojek-500 hover:bg-ngojek-600 text-white font-bold py-3 rounded-xl text-xs transition-colors shadow-md">
+                    Konfirmasi Pembayaran & Selesai
+                </button>
+            </div>
+        </div>
+
+        <!-- Generic Settings & Form Modal -->
+        <div id="modal-generic" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
+                <h3 id="modal-generic-title" class="font-bold text-base text-gray-800">Judul Modal</h3>
+                <div id="modal-generic-content" class="text-xs text-gray-600 space-y-3">
+                    <!-- Dynamic modal content -->
+                </div>
+                <button onclick="closeGenericModal()" class="w-full bg-ngojek-500 text-white font-bold py-2.5 rounded-xl text-xs">Tutup</button>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-xl z-50 transition-all opacity-0 pointer-events-none transform -translate-y-2">
+            Notifikasi Toast
+        </div>
+
+    </div>
+
+    <script>
+        // User Profile Data
+        let userProfile = {
+            name: "Budi Santoso",
+            email: "budi.santoso@gmail.com",
+            phone: "+62 812-3456-7890",
+            avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80"
+        };
+
+        // Application State
+        let currentServiceType = 'ride'; // 'ride' (Rp 6.200/km) or 'car' (Rp 8.500/km)
+        let selectedOptionIndex = 0;
+        let selectedPayment = 'Cash'; // 'Cash' or 'QRIS'
+        let appliedPromo = null; // { code: string, discountAmount: number, discountPercent: number }
+        let currentDistanceKm = 2.5; // Default distance in Km
+
+        // Map Selection Coordinates
+        let currentPickupCoords = [-6.2088, 106.8219];  // Sudirman
+        let currentDropoffCoords = [-6.1950, 106.8230]; // Grand Indonesia
+        let pickerMap = null;
+        let pickerMarker = null;
+
+        // Tracking Simulation Engine State
+        let currentPhase = 0; // 0: SEARCHING, 1: DRIVER_ENROUTE, 2: DRIVER_WAITING, 3: TRIP_ENROUTE, 4: FINISHED
+        let isRideActive = false;
+        let trackingInterval = null;
+        let activeOrderData = null;
+        let userRating = 5;
+
+        // Live Tracking Map Leaflet Handles
+        let liveMap = null;
+        let driverMarker = null;
+        let pickupMarker = null;
+        let dropoffMarker = null;
+
+        const DRIVERS = [
+            { name: 'Ahmad Subagyo', vehicle: 'Honda Vario • B 3829 TKN', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80', rating: '4.9' },
+            { name: 'Bambang Sukarto', vehicle: 'Toyota Avanza • B 1102 SKS', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80', rating: '4.8' },
+            { name: 'Dedi Kurniawan', vehicle: 'Yamaha NMAX • B 6490 ZXR', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80', rating: '5.0' }
+        ];
+        let currentDriver = DRIVERS[0];
+
+        // Service Rates Specification
+        // YourRide: Base Rp 6.200/km
+        // YourCar: Base Rp 8.500/km
+        const RATE_RIDE_PER_KM = 6200;
+        const RATE_CAR_PER_KM = 8500;
+
+        window.onload = function() {
+            lucide.createIcons();
+            populateInitialHistory();
+            updateProfileUIDisplay();
+        };
+
+        // Navigation Controller
+        function navigateTo(screenId) {
+            document.querySelectorAll('.view-screen').forEach(view => view.classList.add('hidden'));
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-ngojek-500');
+                btn.classList.add('text-gray-400');
+            });
+
+            const activeView = document.getElementById(`view-${screenId}`);
+            if (activeView) activeView.classList.remove('hidden');
+
+            const activeNav = document.getElementById(`nav-${screenId}`);
+            if (activeNav) {
+                activeNav.classList.remove('text-gray-400');
+                activeNav.classList.add('text-ngojek-500');
+            }
+
+            if (screenId === 'booking') {
+                setTimeout(initPickerMap, 200);
+            } else if (screenId === 'tracking' && liveMap) {
+                setTimeout(() => liveMap.invalidateSize(), 300);
+            }
+
+            document.querySelector('main').scrollTop = 0;
+        }
+
+        // Open Booking Screen with dynamic distance recalculation
+        function openRideBooking(type) {
+            currentServiceType = type;
+            selectedOptionIndex = 0;
+            document.getElementById('booking-title').innerText = type === 'ride' ? 'Pemesanan YourRide' : 'Pemesanan YourCar';
+            renderServiceOptions();
+            navigateTo('booking');
+        }
+
+        function calculateFare(serviceType, distanceKm) {
+            const baseRate = serviceType === 'ride' ? RATE_RIDE_PER_KM : RATE_CAR_PER_KM;
+            let total = Math.round(distanceKm * baseRate);
+            if (total < 10000) total = 10000; // Minimum fare floor
+            return total;
+        }
+
+        function renderServiceOptions() {
+            const container = document.getElementById('service-options-container');
+            container.innerHTML = '';
+
+            const baseFare = calculateFare(currentServiceType, currentDistanceKm);
+
+            let options = [];
+            if (currentServiceType === 'ride') {
+                options = [
+                    { name: 'YourRide Regular', desc: `Tarif Rp 6.200/km (${currentDistanceKm} Km)`, price: baseFare, icon: 'bike' },
+                    { name: 'YourRide Priority', desc: `Penjemputan prioritas terdepan`, price: baseFare + 4000, icon: 'zap' }
+                ];
+            } else {
+                options = [
+                    { name: 'YourCar Compact', desc: `Mobil 4 seater (${currentDistanceKm} Km)`, price: baseFare, icon: 'car' },
+                    { name: 'YourCar XL', desc: `Mobil 6 seater keluarga`, price: baseFare + 12000, icon: 'users' }
+                ];
+            }
+
+            options.forEach((opt, idx) => {
+                const isSelected = idx === selectedOptionIndex;
+                const html = `
+                    <div onclick="selectServiceOption(${idx})" class="p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                        isSelected 
+                        ? 'border-ngojek-500 bg-blue-50/60 ring-1 ring-ngojek-500' 
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-lg ${isSelected ? 'bg-ngojek-500 text-white' : 'bg-gray-100 text-gray-600'} flex items-center justify-center">
+                                <i data-lucide="${opt.icon}" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-gray-800">${opt.name}</h4>
+                                <p class="text-[10px] text-gray-500">${opt.desc}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-extrabold text-gray-800">Rp ${opt.price.toLocaleString('id-ID')}</p>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+
+            lucide.createIcons();
+            updateBookingButtonPrice();
+        }
+
+        function selectServiceOption(index) {
+            selectedOptionIndex = index;
+            renderServiceOptions();
+        }
+
+        function updateBookingButtonPrice() {
+            const baseFare = calculateFare(currentServiceType, currentDistanceKm);
+            let finalPrice = baseFare;
+            if (selectedOptionIndex === 1) finalPrice += (currentServiceType === 'ride' ? 4000 : 12000);
+
+            if (appliedPromo) {
+                if (appliedPromo.discountAmount) {
+                    finalPrice = Math.max(0, finalPrice - appliedPromo.discountAmount);
+                } else if (appliedPromo.discountPercent) {
+                    finalPrice = Math.round(finalPrice * (1 - appliedPromo.discountPercent));
+                }
+            }
+
+            document.getElementById('btn-booking-price').innerText = `Rp ${finalPrice.toLocaleString('id-ID')}`;
+        }
+
+        // Initialize Location Picker Map
+        function initPickerMap() {
+            if (pickerMap) {
+                pickerMap.invalidateSize();
+                return;
+            }
+
+            pickerMap = L.map('picker-map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView(currentDropoffCoords, 14);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pickerMap);
+
+            const dropIcon = L.divIcon({
+                className: 'custom-picker-icon',
+                html: `<div class="bg-red-500 text-white p-1.5 rounded-full shadow-lg ring-4 ring-red-100 flex items-center justify-center"><i data-lucide="map-pin" class="w-4 h-4"></i></div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+
+            pickerMarker = L.marker(currentDropoffCoords, { icon: dropIcon }).addTo(pickerMap);
+
+            // Tap map to set dropoff location
+            pickerMap.on('click', function(e) {
+                currentDropoffCoords = [e.latlng.lat, e.latlng.lng];
+                pickerMarker.setLatLng(currentDropoffCoords);
+
+                // Calculate Euclidean distance approximation
+                const dLat = (currentDropoffCoords[0] - currentPickupCoords[0]) * 111;
+                const dLng = (currentDropoffCoords[1] - currentPickupCoords[1]) * 111;
+                currentDistanceKm = Math.max(1.0, Math.round(Math.sqrt(dLat * dLat + dLng * dLng) * 10) / 10);
+
+                document.getElementById('picker-distance-tag').innerText = `${currentDistanceKm} Km`;
+                document.getElementById('input-destination').value = `Titik Peta (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`;
+
+                renderServiceOptions();
+                showToast(`Tujuan diperbarui: ${currentDistanceKm} Km dari penjemputan`);
+            });
+
+            lucide.createIcons();
+        }
+
+        function quickSelectDestination(title, address, distanceKm) {
+            currentDistanceKm = distanceKm;
+            document.getElementById('input-destination').value = `${title} (${address})`;
+            openRideBooking('ride');
+        }
+
+        function setCurrentLocationPickup() {
+            document.getElementById('input-pickup').value = 'Lokasi Saya Saat Ini (Sudirman)';
+            showToast('Lokasi penjemputan diperbarui via GPS');
+        }
+
+        // Toggle Payment Methods (Cash or QRIS ONLY)
+        function togglePaymentMethod() {
+            if (selectedPayment === 'Cash') {
+                selectedPayment = 'QRIS';
+                document.getElementById('selected-payment-name').innerText = 'QRIS';
+                document.getElementById('selected-payment-sub').innerText = 'Scan QR via BCA, Mandiri, GoPay, OVO, dll';
+                document.getElementById('payment-icon-container').innerHTML = `<i data-lucide="qr-code" class="w-4 h-4 text-ngojek-600"></i>`;
+            } else {
+                selectedPayment = 'Cash';
+                document.getElementById('selected-payment-name').innerText = 'Cash (Tunai)';
+                document.getElementById('selected-payment-sub').innerText = 'Bayar tunai ke pengemudi';
+                document.getElementById('payment-icon-container').innerHTML = `<i data-lucide="banknote" class="w-4 h-4 text-ngojek-600"></i>`;
+            }
+            lucide.createIcons();
+            showToast(`Metode Pembayaran: ${selectedPayment}`);
+        }
+
+        // Voucher & Promo Handler
+        function applyManualPromoCode() {
+            const code = document.getElementById('input-promo-code').value.trim().toUpperCase();
+            applyPromoCodeInput(code);
+        }
+
+        function applyPromoCodeInput(code) {
+            if (code === 'DISKON50') {
+                appliedPromo = { code: 'DISKON50', discountPercent: 0.5 };
+                document.getElementById('promo-text-description').innerText = 'Promo Aktif: DISKON50 (-50%)';
+            } else if (code === 'PROMOJUARA') {
+                appliedPromo = { code: 'PROMOJUARA', discountAmount: 10000 };
+                document.getElementById('promo-text-description').innerText = 'Promo Aktif: PROMOJUARA (-Rp 10.000)';
+            } else if (code === 'NGOJEKCINTO') {
+                appliedPromo = { code: 'NGOJEKCINTO', discountAmount: 5000 };
+                document.getElementById('promo-text-description').innerText = 'Promo Aktif: NGOJEKCINTO (-Rp 5.000)';
+            } else {
+                showToast('Kode promo tidak valid!');
+                return;
+            }
+
+            document.getElementById('active-promo-badge').classList.remove('hidden');
+            document.getElementById('input-promo-code').value = code;
+            updateBookingButtonPrice();
+            showToast(`Promo ${code} Berhasil Dipasang!`);
+        }
+
+        function removePromoCode() {
+            appliedPromo = null;
+            document.getElementById('active-promo-badge').classList.add('hidden');
+            document.getElementById('input-promo-code').value = '';
+            updateBookingButtonPrice();
+            showToast('Promo dilepas');
+        }
+
+        // Live Tracking Simulation Engine
+        function startOrderDispatch() {
+            const baseFare = calculateFare(currentServiceType, currentDistanceKm);
+            let finalPrice = baseFare + (selectedOptionIndex === 1 ? (currentServiceType === 'ride' ? 4000 : 12000) : 0);
+            
+            let discount = 0;
+            if (appliedPromo) {
+                if (appliedPromo.discountAmount) discount = appliedPromo.discountAmount;
+                if (appliedPromo.discountPercent) discount = Math.round(finalPrice * appliedPromo.discountPercent);
+                finalPrice = Math.max(0, finalPrice - discount);
+            }
+
+            currentDriver = DRIVERS[Math.floor(Math.random() * DRIVERS.length)];
+
+            activeOrderData = {
+                id: 'NGJ-' + Math.floor(100000 + Math.random() * 900000),
+                type: currentServiceType,
+                typeName: currentServiceType === 'ride' ? 'YourRide' : 'YourCar',
+                pickup: document.getElementById('input-pickup').value,
+                dropoff: document.getElementById('input-destination').value,
+                distanceKm: currentDistanceKm,
+                basePrice: baseFare,
+                discount: discount,
+                totalPrice: finalPrice,
+                paymentMethod: selectedPayment,
+                driver: currentDriver,
+                time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            navigateTo('tracking');
+            initLiveMap();
+
+            currentPhase = 0;
+            isRideActive = true;
+            updateTrackingUI();
+
+            setTimeout(() => {
+                if (!isRideActive) return;
+                currentPhase = 1;
+                showToast(`Pengemudi ${currentDriver.name} Ditemukan!`);
+                updateTrackingUI();
+                startMapAnimationLoop();
+            }, 2500);
+        }
+
+        function initLiveMap() {
+            if (liveMap) return;
+
+            liveMap = L.map('live-map', { zoomControl: false, attributionControl: false }).setView(currentPickupCoords, 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(liveMap);
+
+            const pickupIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="bg-blue-600 text-white p-1.5 rounded-full shadow-lg ring-4 ring-blue-100 flex items-center justify-center"><i data-lucide="user" class="w-4 h-4"></i></div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+            pickupMarker = L.marker(currentPickupCoords, { icon: pickupIcon }).addTo(liveMap);
+
+            const dropoffIcon = L.divIcon({
+                className: 'custom-div-icon',
+                html: `<div class="bg-red-600 text-white p-1.5 rounded-full shadow-lg ring-4 ring-red-100 flex items-center justify-center"><i data-lucide="map-pin" class="w-4 h-4"></i></div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+            dropoffMarker = L.marker(currentDropoffCoords, { icon: dropoffIcon }).addTo(liveMap);
+
+            const driverStart = [currentPickupCoords[0] - 0.01, currentPickupCoords[1] - 0.01];
+            const driverIcon = L.divIcon({
+                className: 'driver-marker-icon',
+                html: `<div class="relative"><div class="pulse-ring-blue"></div><div class="bg-gray-900 text-white p-2 rounded-full shadow-xl ring-2 ring-ngojek-500 flex items-center justify-center"><i data-lucide="${currentServiceType === 'ride' ? 'bike' : 'car'}" class="w-4 h-4 text-ngojek-500"></i></div></div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+            driverMarker = L.marker(driverStart, { icon: driverIcon }).addTo(liveMap);
+
+            lucide.createIcons();
+        }
+
+        function updateTrackingUI() {
+            const title = document.getElementById('tracking-status-title');
+            const etaBadge = document.getElementById('live-eta-badge');
+            const progress = document.getElementById('tracking-progress-bar');
+            const driverStatus = document.getElementById('driver-status-text');
+            const cancelBtn = document.getElementById('btn-cancel-ride');
+
+            document.getElementById('driver-name').innerText = currentDriver.name;
+            document.getElementById('driver-vehicle').innerText = currentDriver.vehicle;
+            document.getElementById('driver-avatar-img').src = currentDriver.avatar;
+            document.getElementById('track-pickup-text').innerText = activeOrderData.pickup;
+            document.getElementById('track-dropoff-text').innerText = activeOrderData.dropoff;
+
+            if (currentPhase === 0) {
+                title.innerText = "Mencari Pengemudi Terdekat...";
+                etaBadge.innerText = "ETA: -- Min";
+                progress.style.width = "15%";
+                driverStatus.innerText = "Sistem mencocokkan pengemudi...";
+                cancelBtn.disabled = false;
+                cancelBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else if (currentPhase === 1) {
+                title.innerText = "Pengemudi Menuju Lokasi Penjemputan";
+                etaBadge.innerText = "ETA Penjemputan: 3 Min";
+                progress.style.width = "40%";
+                driverStatus.innerText = "Driver sedang bergerak menjemput Anda";
+                cancelBtn.disabled = false;
+                cancelBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else if (currentPhase === 2) {
+                title.innerText = "Pengemudi Tiba di Titik Jemput";
+                etaBadge.innerText = "Driver Menunggu";
+                progress.style.width = "60%";
+                driverStatus.innerText = "Silakan temui pengemudi Anda";
+                cancelBtn.disabled = false;
+                cancelBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else if (currentPhase === 3) {
+                title.innerText = "Dalam Perjalanan Menuju Tujuan";
+                etaBadge.innerText = `ETA Tujuan: 7 Min (${activeOrderData.distanceKm} Km)`;
+                progress.style.width = "85%";
+                driverStatus.innerText = "Selamat menikmati perjalanan Ngojek";
+                cancelBtn.disabled = true;
+                cancelBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                cancelBtn.innerText = "Tidak Dapat Dibatalkan";
+            }
+        }
+
+        function startMapAnimationLoop() {
+            if (trackingInterval) clearInterval(trackingInterval);
+            let step = 0;
+            const totalSteps = 50;
+
+            trackingInterval = setInterval(() => {
+                if (!isRideActive) {
+                    clearInterval(trackingInterval);
+                    return;
+                }
+                step++;
+
+                if (currentPhase === 1) {
+                    const startLat = currentPickupCoords[0] - 0.01;
+                    const startLng = currentPickupCoords[1] - 0.01;
+                    const lat = startLat + (currentPickupCoords[0] - startLat) * (step / totalSteps);
+                    const lng = startLng + (currentPickupCoords[1] - startLng) * (step / totalSteps);
+                    driverMarker.setLatLng([lat, lng]);
+                    liveMap.panTo([lat, lng]);
+
+                    if (step >= totalSteps) {
+                        currentPhase = 2;
+                        step = 0;
+                        updateTrackingUI();
+                        showToast("Pengemudi telah tiba di lokasi penjemputan!");
+                    }
+                } else if (currentPhase === 2) {
+                    if (step >= 20) {
+                        currentPhase = 3;
+                        step = 0;
+                        updateTrackingUI();
+                        showToast("Perjalanan menuju lokasi tujuan dimulai!");
+                    }
+                } else if (currentPhase === 3) {
+                    const lat = currentPickupCoords[0] + (currentDropoffCoords[0] - currentPickupCoords[0]) * (step / totalSteps);
+                    const lng = currentPickupCoords[1] + (currentDropoffCoords[1] - currentPickupCoords[1]) * (step / totalSteps);
+                    driverMarker.setLatLng([lat, lng]);
+                    liveMap.panTo([lat, lng]);
+
+                    if (step >= totalSteps) {
+                        clearInterval(trackingInterval);
+                        currentPhase = 4;
+                        finishRideJourney();
+                    }
+                }
+            }, 100);
+        }
+
+        function forceNextPhase() {
+            if (!isRideActive) return;
+            if (currentPhase < 3) {
+                currentPhase++;
+                updateTrackingUI();
+            } else {
+                finishRideJourney();
+            }
+        }
+
+        function cancelActiveRide() {
+            if (currentPhase === 3) {
+                showToast("Tidak dapat membatalkan perjalanan yang sedang berjalan!");
+                return;
+            }
+
+            if (confirm("Apakah Anda yakin ingin membatalkan pesanan ini?")) {
+                isRideActive = false;
+                if (trackingInterval) clearInterval(trackingInterval);
+                saveOrderToHistory('Dibatalkan');
+                showToast("Pesanan berhasil dibatalkan");
+                navigateTo('home');
+            }
+        }
+
+        function finishRideJourney() {
+            isRideActive = false;
+            if (trackingInterval) clearInterval(trackingInterval);
+
+            document.getElementById('complete-distance-text').innerText = `${activeOrderData.distanceKm} Km`;
+            document.getElementById('complete-base-fare').innerText = `Rp ${activeOrderData.basePrice.toLocaleString('id-ID')}`;
+            
+            if (activeOrderData.discount > 0) {
+                document.getElementById('complete-discount-row').classList.remove('hidden');
+                document.getElementById('complete-discount-amount').innerText = `-Rp ${activeOrderData.discount.toLocaleString('id-ID')}`;
+            } else {
+                document.getElementById('complete-discount-row').classList.add('hidden');
+            }
+
+            document.getElementById('complete-total-fare').innerText = `Rp ${activeOrderData.totalPrice.toLocaleString('id-ID')}`;
+            document.getElementById('complete-payment-method').innerText = activeOrderData.paymentMethod;
+
+            if (activeOrderData.paymentMethod === 'QRIS') {
+                document.getElementById('qris-box-container').classList.remove('hidden');
+            } else {
+                document.getElementById('qris-box-container').classList.add('hidden');
+            }
+
+            document.getElementById('modal-completion').classList.remove('hidden');
+        }
+
+        function setStarRating(rating) {
+            userRating = rating;
+            const stars = document.querySelectorAll('.star-btn i');
+            stars.forEach((star, idx) => {
+                if (idx < rating) {
+                    star.classList.add('text-yellow-400');
+                    star.classList.remove('text-gray-300');
+                } else {
+                    star.classList.remove('text-yellow-400');
+                    star.classList.add('text-gray-300');
+                }
+            });
+        }
+
+        function submitReviewAndFinish() {
+            saveOrderToHistory('Selesai');
+            document.getElementById('modal-completion').classList.add('hidden');
+            showToast("Pembayaran terverifikasi & ulasan terkirim!");
+            navigateTo('home');
+        }
+
+        // Order History Array Store
+        const orderHistoryList = [];
+
+        function saveOrderToHistory(status) {
+            if (!activeOrderData) return;
+            activeOrderData.status = status;
+            orderHistoryList.unshift({ ...activeOrderData });
+            renderOrderHistory('all');
+        }
+
+        function populateInitialHistory() {
+            orderHistoryList.push({
+                id: 'NGJ-901234',
+                type: 'ride',
+                typeName: 'YourRide Regular',
+                pickup: 'Jl. Kebon Jeruk No. 12',
+                dropoff: 'Menara Mulia, Gatot Subroto',
+                distanceKm: 5.8,
+                totalPrice: 35960,
+                paymentMethod: 'QRIS',
+                status: 'Selesai',
+                time: '14 Okt 2026 • 08:30 WIB'
+            });
+            orderHistoryList.push({
+                id: 'NGJ-812390',
+                type: 'car',
+                typeName: 'YourCar Compact',
+                pickup: 'Grand Indonesia Mall',
+                dropoff: 'Kebon Jeruk',
+                distanceKm: 3.2,
+                totalPrice: 27200,
+                paymentMethod: 'Cash',
+                status: 'Selesai',
+                time: '12 Okt 2026 • 17:45 WIB'
+            });
+            renderOrderHistory('all');
+        }
+
+        function filterOrderHistory(type) {
+            document.querySelectorAll('#view-orders button').forEach(btn => {
+                btn.classList.remove('font-bold', 'text-ngojek-600', 'border-b-2', 'border-ngojek-500');
+                btn.classList.add('text-gray-500');
+            });
+            const tab = document.getElementById(`filter-${type}`);
+            if (tab) {
+                tab.classList.add('font-bold', 'text-ngojek-600', 'border-b-2', 'border-ngojek-500');
+                tab.classList.remove('text-gray-500');
+            }
+            renderOrderHistory(type);
+        }
+
+        function renderOrderHistory(filter) {
+            const container = document.getElementById('orders-list');
+            container.innerHTML = '';
+
+            const filtered = orderHistoryList.filter(item => {
+                if (filter === 'ride') return item.type === 'ride';
+                if (filter === 'car') return item.type === 'car';
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<p class="text-center text-xs text-gray-400 py-6">Belum ada riwayat transaksi.</p>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const isCancelled = item.status === 'Dibatalkan';
+                const statusBadge = isCancelled 
+                    ? `<span class="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Dibatalkan</span>`
+                    : `<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Selesai</span>`;
+
+                const icon = item.type === 'ride' ? 'bike' : 'car';
+
+                const html = `
+                    <div class="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs space-y-2">
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-6 h-6 rounded-md bg-blue-50 text-ngojek-600 flex items-center justify-center">
+                                    <i data-lucide="${icon}" class="w-3.5 h-3.5"></i>
+                                </div>
+                                <span class="text-xs font-bold text-gray-800">${item.typeName}</span>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        <div class="text-xs space-y-1">
+                            <p class="text-gray-400 text-[10px]">${item.time} • ${item.distanceKm} Km</p>
+                            <p class="font-semibold text-gray-800 truncate">${item.pickup} ➔ ${item.dropoff}</p>
+                        </div>
+                        <div class="flex justify-between items-center pt-1 border-t border-gray-100 text-xs">
+                            <span class="text-gray-500">Bayar (${item.paymentMethod})</span>
+                            <span class="font-extrabold text-ngojek-600">Rp ${item.totalPrice.toLocaleString('id-ID')}</span>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+
+            lucide.createIcons();
+        }
+
+        function updateProfileUIDisplay() {
+            document.getElementById('header-user-name').innerText = userProfile.name.split(' ')[0];
+            document.getElementById('header-user-avatar').src = userProfile.avatar;
+            document.getElementById('home-greeting-name').innerText = `Halo, ${userProfile.name}! 👋`;
+            document.getElementById('profile-name-text').innerText = userProfile.name;
+            document.getElementById('profile-email-text').innerText = userProfile.email;
+            document.getElementById('profile-phone-text').innerText = userProfile.phone;
+            document.getElementById('profile-avatar-img').src = userProfile.avatar;
+        }
+
+        function openAvatarChangeModal() {
+            const title = document.getElementById('modal-generic-title');
+            const content = document.getElementById('modal-generic-content');
+            title.innerText = 'Ganti Foto Profil';
+
+            content.innerHTML = `
+                <p>Pilih foto avatar profil Anda:</p>
+                <div class="grid grid-cols-3 gap-3 my-3">
+                    <img onclick="selectAvatar('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80')" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80" class="w-16 h-16 rounded-xl object-cover border-2 border-transparent hover:border-ngojek-500 cursor-pointer">
+                    <img onclick="selectAvatar('https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80')" src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80" class="w-16 h-16 rounded-xl object-cover border-2 border-transparent hover:border-ngojek-500 cursor-pointer">
+                    <img onclick="selectAvatar('https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80')" src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120&auto=format&fit=crop&q=80" class="w-16 h-16 rounded-xl object-cover border-2 border-transparent hover:border-ngojek-500 cursor-pointer">
+                </div>
+            `;
+            document.getElementById('modal-generic').classList.remove('hidden');
+        }
+
+        function selectAvatar(url) {
+            userProfile.avatar = url;
+            updateProfileUIDisplay();
+            closeGenericModal();
+            showToast("Foto profil berhasil diperbarui!");
+        }
+
+        // Generic Modal Handler for All Settings Group
+        function openModalSettings(type) {
+            const title = document.getElementById('modal-generic-title');
+            const content = document.getElementById('modal-generic-content');
+
+            if (type === 'password') {
+                title.innerText = 'Pengaturan Kata Sandi';
+                content.innerHTML = `
+                    <p class="text-gray-500">Ubah kata sandi akun pelanggan Ngojek Anda:</p>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase">Kata Sandi Lama</label>
+                        <input type="password" placeholder="••••••••" class="w-full border border-gray-200 p-2 rounded-lg text-xs mt-0.5 focus:border-ngojek-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase">Kata Sandi Baru</label>
+                        <input type="password" placeholder="••••••••" class="w-full border border-gray-200 p-2 rounded-lg text-xs mt-0.5 focus:border-ngojek-500 focus:outline-none">
+                    </div>
+                    <button onclick="showToast('Kata sandi berhasil disimpan!'); closeGenericModal();" class="w-full bg-ngojek-500 text-white font-bold py-2.5 rounded-lg text-xs mt-2">Simpan Perubahan</button>
+                `;
+            } else if (type === 'pin') {
+                title.innerText = 'Pengaturan PIN Ngojek';
+                content.innerHTML = `
+                    <p class="text-gray-500">Atur 6 digit PIN untuk verifikasi masuk aplikasi:</p>
+                    <input type="password" maxlength="6" placeholder="• • • • • •" class="w-full border border-gray-200 p-2.5 rounded-lg text-center tracking-widest text-base font-bold my-2 focus:border-ngojek-500 focus:outline-none">
+                    <button onclick="showToast('PIN Ngojek berhasil diperbarui!'); closeGenericModal();" class="w-full bg-ngojek-500 text-white font-bold py-2.5 rounded-lg text-xs">Simpan PIN</button>
+                `;
+            } else if (type === 'account') {
+                title.innerText = 'Pengaturan Akun';
+                content.innerHTML = `
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase">Nama Lengkap</label>
+                            <input type="text" id="edit-profile-name" value="${userProfile.name}" class="w-full border border-gray-200 p-2 rounded-lg text-xs focus:border-ngojek-500 focus:outline-none font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase">Email</label>
+                            <input type="email" id="edit-profile-email" value="${userProfile.email}" class="w-full border border-gray-200 p-2 rounded-lg text-xs focus:border-ngojek-500 focus:outline-none font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase">Nomor HP</label>
+                            <input type="text" id="edit-profile-phone" value="${userProfile.phone}" class="w-full border border-gray-200 p-2 rounded-lg text-xs focus:border-ngojek-500 focus:outline-none font-semibold">
+                        </div>
+                        <button onclick="saveAccountSettings()" class="w-full bg-ngojek-500 text-white font-bold py-2.5 rounded-lg text-xs mt-2">Simpan Data Akun</button>
+                    </div>
+                `;
+            } else if (type === 'terms') {
+                title.innerText = 'Ketentuan dan Layanan';
+                content.innerHTML = `
+                    <p class="leading-relaxed">1. Syarat Penggunaan: Layanan Ngojek khusus untuk pelanggan terdaftar.</p>
+                    <p class="leading-relaxed">2. Penentuan Tarif: Tarif dasar dihitung Rp 6.200/Km untuk YourRide dan Rp 8.500/Km untuk YourCar.</p>
+                    <p class="leading-relaxed">3. Metode Pembayaran: Tersedia secara Cash (Tunai) dan QRIS resmi.</p>
+                    <p class="leading-relaxed">4. Pembatalan: Penumpang berhak membatalkan pesanan sebelum penjemputan selesai.</p>
+                `;
+            } else if (type === 'cs') {
+                title.innerText = 'Layanan Pelanggan (24 Jam)';
+                content.innerHTML = `
+                    <div class="text-center space-y-2 py-2">
+                        <div class="w-12 h-12 bg-blue-50 text-ngojek-500 rounded-full flex items-center justify-center mx-auto">
+                            <i data-lucide="headphone-off" class="w-6 h-6"></i>
+                        </div>
+                        <p class="font-bold text-gray-800 text-xs">Customer Service Ngojek Siap Membantu</p>
+                        <p class="text-gray-500 text-[11px]">Hubungi kami jika mengalami kendala transaksi atau perjalanan.</p>
+                        <button onclick="showToast('Menghubungkan Live Chat Customer Service...'); closeGenericModal();" class="w-full bg-ngojek-500 text-white font-bold py-2 rounded-lg text-xs mt-2">Mulai Live Chat CS</button>
+                    </div>
+                `;
+                lucide.createIcons();
+            } else if (type === 'mailbox') {
+                title.innerText = 'Kotak Surat & Keluhan';
+                content.innerHTML = `
+                    <p class="text-gray-500">Tuliskan saran, masukan, atau keluhan Anda:</p>
+                    <textarea id="feedback-input" rows="3" class="w-full border border-gray-200 p-2.5 rounded-lg text-xs focus:border-ngojek-500 focus:outline-none" placeholder="Tuliskan di sini..."></textarea>
+                    <button onclick="showToast('Saran & keluhan Anda telah dikirim!'); closeGenericModal();" class="w-full bg-ngojek-500 text-white font-bold py-2.5 rounded-lg text-xs">Kirim Pesan</button>
+                `;
+            } else if (type === 'about') {
+                title.innerText = 'Tentang Kami';
+                content.innerHTML = `
+                    <div class="text-center space-y-2 py-2">
+                        <div class="w-10 h-10 bg-ngojek-500 text-white rounded-xl flex items-center justify-center mx-auto">
+                            <i data-lucide="navigation" class="w-5 h-5 fill-current transform rotate-45"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-800">PT Ngojek Indonesia Karya</h4>
+                        <p class="text-[11px] text-gray-500">Aplikasi Transportasi Online Terpercaya</p>
+                        <p class="text-[10px] text-ngojek-600 font-bold bg-blue-50 p-1 rounded">Versi Aplikasi: v2.4.0 (Blue Edition)</p>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+
+            document.getElementById('modal-generic').classList.remove('hidden');
+        }
+
+        function saveAccountSettings() {
+            userProfile.name = document.getElementById('edit-profile-name').value;
+            userProfile.email = document.getElementById('edit-profile-email').value;
+            userProfile.phone = document.getElementById('edit-profile-phone').value;
+            updateProfileUIDisplay();
+            closeGenericModal();
+            showToast("Data akun berhasil disimpan!");
+        }
+
+        function closeGenericModal() {
+            document.getElementById('modal-generic').classList.add('hidden');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-2');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
